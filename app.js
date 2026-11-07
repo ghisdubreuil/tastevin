@@ -95,14 +95,40 @@ var T_STRUCT = [
   ["equilibre","Équilibre","Bancal","Parfait"]
 ];
 
-var T_STEPS = ["Boisson","Détails","L’œil","Le nez","La bouche","Structure","Note"];
+/* Trois façons de déguster : chaque mode a sa suite d’écrans */
+var MODES = {
+  normal:{label:"Dégustation complète", short:"Complète", desc:"Robe, nez, bouche, structure et note, en sept écrans.",
+    steps:[["boisson","Boisson"],["details","Détails"],["oeil","L’œil"],["nez","Le nez"],["bouche","La bouche"],["structure","Structure"],["note","Note"]]},
+  rapide:{label:"Fiche rapide", short:"Rapide", desc:"Quand le temps manque : la bouteille, une photo, une note et tes remarques. Un seul écran.",
+    steps:[["rapide","Fiche rapide"]]},
+  aveugle:{label:"À l’aveugle", short:"Aveugle", desc:"On décrit et on note sans rien savoir du vin, puis on tente un pronostic avant de révéler l’étiquette.",
+    steps:[["oeil","L’œil"],["nez","Le nez"],["bouche","La bouche"],["structure","Structure"],["note","Note"],["prono","Pronostic"],["reveal","Révélation"]]}
+};
+function stepsOf(d){ return (MODES[d.mode] || MODES.normal).steps; }
+function sid(){ return V.d ? stepsOf(V.d)[V.step][0] : ""; }
+/* Pictogrammes au trait */
+var LS = 'fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"';
+var ICON = {
+  vin:'<svg viewBox="0 0 24 24" aria-hidden="true" '+LS+'><path d="M7.5 3h9c.7 4.5.3 7.4-1.6 9.2A4.3 4.3 0 0 1 12 13.4a4.3 4.3 0 0 1-2.9-1.2C7.2 10.4 6.8 7.5 7.5 3z M12 13.4V20 M8.5 21h7 M7.2 7.5h9.6"/></svg>',
+  biere:'<svg viewBox="0 0 24 24" aria-hidden="true" '+LS+'><path d="M6 6h10l-1 15H7z M16 9h1.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2H15.4 M6 6c0-1.7 1.3-3 3-3 .6-.7 1.6-1 2.5-.7A2.7 2.7 0 0 1 16 4.5V6 M9.5 10v8 M12.5 10v8"/></svg>',
+  spiritueux:'<svg viewBox="0 0 24 24" aria-hidden="true" '+LS+'><path d="M5 8h14l-1.4 12.2c-.1.5-.5.8-1 .8H7.4c-.5 0-.9-.3-1-.8z M6 13.5h12 M9.5 15.5h3.5v3H9.5z"/></svg>',
+  search:'<svg viewBox="0 0 24 24" aria-hidden="true" '+LS+'><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+  leaf:'<svg viewBox="0 0 48 32" aria-hidden="true" '+LS+'><path d="M2 26c8-1 13-5 17-11 M19 15c-1-5 1-9 5-11 1 3 3 4 6 4-1 3 0 5 3 6-3 2-4 4-3 7-4-1-7 0-9 2-1-3-2-5-2-8z M19 15l10-4"/><path d="M33 23c3 0 5-2 5-4 2 0 4 1 4 3s-2 4-4 4" /><circle cx="40" cy="27.5" r="1.6"/><circle cx="36.5" cy="28.5" r="1.6"/><circle cx="38.5" cy="30.6" r="1.4"/></svg>'
+};
+var VINE = '<svg class="vine" viewBox="0 0 260 120" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">'+
+  '<path d="M4 96c40-6 70-24 96-50 20-20 46-30 74-28 30 2 52 18 82 14"/>'+
+  '<path d="M100 46c-6-14-2-28 10-36 2 8 8 12 16 12-2 8 0 14 8 18-8 4-10 10-8 18-10-4-18-2-24 4-2-6-2-10-2-16z"/><path d="M100 46l30-14 M112 34l-2-14 M118 40l14 4"/>'+
+  '<path d="M186 20c-4 6-2 12 4 16 M190 36c8 2 12-2 12-8" opacity=".7"/><path d="M60 74c4 6 10 8 16 6 M66 78c-2 6 0 10 6 12" opacity=".7"/>'+
+  '<g fill="currentColor" stroke="none" opacity=".85"><circle cx="150" cy="56" r="5"/><circle cx="161" cy="55" r="5"/><circle cx="144" cy="65" r="5"/><circle cx="155" cy="65" r="5"/><circle cx="166" cy="64" r="5"/><circle cx="150" cy="74" r="5"/><circle cx="161" cy="74" r="5"/><circle cx="155" cy="83" r="5"/></g>'+
+  '<path d="M156 50c0-6 2-10 6-14"/></svg>';
 var T_GRAPES = ["Chardonnay","Pinot noir","Riesling","Gewurztraminer","Pinot gris","Sauvignon","Chenin","Syrah","Grenache","Mourvèdre","Merlot","Cabernet sauvignon","Cabernet franc","Gamay","Malbec","Viognier","Sylvaner","Muscat","Savagnin","Assemblage"];
 
 function col(s){ return s == null ? "var(--muted)" : s >= 16 ? "var(--good)" : s >= 13 ? "var(--accent)" : s >= 10 ? "var(--warn)" : "var(--muted)"; }
 function fmt(s){ return s == null || s === "" ? "–" : (Math.round(s * 10) / 10).toString().replace(".", ","); }
 function lbl(s){ return s < 8 ? "À oublier" : s < 11 ? "Bof" : s < 13 ? "Correct" : s < 15 ? "Bon" : s < 17 ? "Très bon" : s < 19 ? "Superbe" : "Légendaire"; }
-function title(d){ return d.nom || d.famille || (T_TYPES[d.type] || {}).label || "Dégustation"; }
-function palette(d){ return T_COLORS[d.type === "vin" ? "vin:" + d.famille : d.type] || T_COLORS["vin:Blanc"]; }
+function title(d){ return d.nom || (d.mode === "aveugle" && !d.type && !d.domName ? "Vin mystère" : d.famille || (T_TYPES[d.type] || {}).label || "Dégustation"); }
+var T_BLIND = [["Vert pâle","#E6EAB2"],["Jaune paille","#E8CF6E"],["Doré","#DDB84A"],["Ambré","#B57B2C"],["Pêche","#F4B092"],["Saumon","#EE9779"],["Rubis","#9B1B30"],["Grenat","#7A1F2B"],["Tuilé","#8F3E2A"],["Brun","#5A3420"]];
+function palette(d){ return !d.type ? T_BLIND : T_COLORS[d.type === "vin" ? "vin:" + d.famille : d.type] || T_COLORS["vin:Blanc"]; }
 function hexOf(d){ return d.couleur ? d.couleur.split("|")[1] : (((T_TYPES[d.type] || {}).fams || []).filter(function(f){ return f[0] === d.famille; })[0] || [])[1] || "var(--panel-2)"; }
 function years(cur){ var y0 = new Date().getFullYear() - 1, ys = []; for (var y = y0; y > y0 - 12; y--) ys.push(String(y)); if (cur && ys.indexOf(String(cur)) < 0) ys.push(String(cur)); return ys; }
 function known(field){ var seen = {}; list().forEach(function(x){ var v = trim(x[field]); if (v) seen[v] = 1; }); return Object.keys(seen).sort(); }
@@ -138,9 +164,9 @@ var V = {screen:"home", back:[], d:null, step:0, id:null, q:"", type:"all", sort
 function card(d, rank){
   var ph = d.photoData || d.photo;
   return '<button class="card" type="button" data-a="view" data-id="'+esc(d.id)+'"><span class="rk">'+(rank ? (rank <= 3 ? ["🥇","🥈","🥉"][rank - 1] : rank) : '')+'</span>'+
-    '<span class="th" style="background:'+hexOf(d)+'">'+(ph ? '<img src="'+esc(ph)+'" alt="" loading="lazy" onerror="this.remove()">' : (T_TYPES[d.type] || {}).icon || '🍷')+'</span>'+
+    '<span class="th" style="background:'+hexOf(d)+'">'+(ph ? '<img src="'+esc(ph)+'" alt="" loading="lazy" onerror="this.remove()">' : ICON[d.type] || ICON.vin)+'</span>'+
     '<span class="ct"><b>'+esc(title(d))+(d.millesime ? ' '+esc(d.millesime) : '')+'</b><small>'+esc([d.domName, d.appellation || d.region].filter(Boolean).join(" · "))+'</small>'+
-    '<small>'+esc([(T_TYPES[d.type] || {}).label, d.famille, d.author, fdate(d.date)].filter(Boolean).join(" · "))+'</small></span>'+
+    '<small>'+(d.mode && d.mode !== "normal" ? '<em class="tag">'+MODES[d.mode].short+'</em> ' : '')+esc([(T_TYPES[d.type] || {}).label, d.famille, d.author, fdate(d.date)].filter(Boolean).join(" · "))+'</small></span>'+
     '<span class="sc" style="--s:'+col(d.score)+'">'+fmt(d.score)+'<small>/20</small></span></button>';
 }
 function syncLine(){
@@ -161,14 +187,14 @@ function home(){
     return norm([d.nom, d.domName, d.famille, d.appellation, d.region, d.pays, d.parcelle, d.millesime, d.author, d.txt, (d.cepages || []).join(" ")].join(" ")).indexOf(q) >= 0;
   });
   rows.sort(V.sort === "score" ? function(a, b){ return (b.score || 0) - (a.score || 0); } : function(a, b){ return (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0); });
-  var h = '<header class="top"><div class="tt"><span class="brand">Taste<i>vin</i></span><small>'+all.length+' dégustation'+(all.length > 1 ? 's' : '')+'</small></div></header>';
+  var h = '<header class="top"><div class="tt"><span class="brand">'+ICON.leaf+'<span>Taste<i>vin</i></span></span><small>'+all.length+' dégustation'+(all.length > 1 ? 's' : '')+' au carnet</small></div></header>';
   h += '<span id="syncLine">'+syncLine()+'</span>';
-  if (S.draft) h += '<div class="row" style="margin-bottom:.5rem"><button class="btn block" type="button" data-a="resume">↩️ Reprendre la saisie en cours</button></div>';
-  h += '<label class="search"><span aria-hidden="true">🔍</span><input id="q" type="search" value="'+esc(V.q)+'" placeholder="Domaine, cuvée, cépage, millésime…" aria-label="Rechercher"></label>';
-  h += '<div class="chips">'+[["all","Tout"],["vin","🍷 Vins"],["biere","🍺 Bières"],["spiritueux","🥃 Spiritueux"]].map(function(f){
+  if (S.draft) h += '<button class="btn block" type="button" data-a="resume" style="margin-bottom:var(--s-s)">Reprendre la saisie en cours</button>';
+  h += '<label class="search">'+ICON.search+'<input id="q" type="search" value="'+esc(V.q)+'" placeholder="Domaine, cuvée, cépage, millésime…" aria-label="Rechercher"></label>';
+  h += '<div class="chips">'+[["all","Tout"],["vin","Vins"],["biere","Bières"],["spiritueux","Spiritueux"]].map(function(f){
     return '<button class="chip" type="button" data-a="type" data-v="'+f[0]+'" aria-pressed="'+(V.type === f[0])+'">'+f[1]+'</button>';
   }).join("")+'<button class="chip" type="button" data-a="sort" aria-pressed="false">'+(V.sort === "score" ? '↓ Meilleures notes' : '↓ Plus récentes')+'</button></div>';
-  if (!all.length) return h + '<p class="empty">Ton carnet est vide.<br>Touche <b>＋ Déguster</b> pour noter ton premier vin.</p>';
+  if (!all.length) return h + '<div class="empty-vine">'+VINE+'<p class="empty">Ton carnet est encore vierge.<br>Touche « Déguster » pour noter ton premier vin.</p></div>';
   if (!rows.length) return h + '<p class="empty">Aucune dégustation ne correspond.</p>';
   var last = "";
   h += '<div class="list">'+rows.map(function(d, k){
@@ -180,21 +206,23 @@ function home(){
 }
 
 /* Saisie en 7 écrans */
-function newDraft(){ return {type:"", famille:"", aspect:[], aromes:{}, saveurs:{}, structure:{}, cepages:[], date:today(), author:S.me}; }
+function newDraft(mode){ return {mode:mode || "normal", type:"", famille:"", aspect:[], aromes:{}, saveurs:{}, structure:{}, cepages:[], guess:{}, date:today(), author:S.me}; }
 function collect(){
   var f = $("wf"); if (!f) return;
-  var d = V.d, fd = new FormData(f), step = parseInt(f.getAttribute("data-step"), 10);
+  var d = V.d, fd = new FormData(f), step = f.getAttribute("data-step");
   function g(k){ return trim(fd.get(k)); }
-  if (step === 0) d.famille = g("famille") || d.famille;
-  else if (step === 1) {
+  if (fd.has("famille")) d.famille = g("famille") || d.famille;
+  if (step === "details" || step === "rapide" || step === "reveal") {
     ["domName","nom","millesime","pays","region","appellation","parcelle","degre","prix","elevage","achat","infos"].forEach(function(k){ if (fd.has(k)) d[k] = g(k); });
     if (fd.has("autreAnnee") && g("autreAnnee")) d.millesime = g("autreAnnee");
     if (fd.has("cep_present")) d.cepages = fd.getAll("cepages");
     if (V.photo) { d.photoData = V.photo; V.photo = null; }
   }
-  else if (step === 2) { d.couleur = g("couleur"); d.cpos = fd.get("cpos") ? parseInt(fd.get("cpos"), 10) : null; d.intensite = parseInt(fd.get("intensite"), 10) || 0; d.aspect = fd.getAll("aspect"); }
-  else if (step === 5) { var st = {}; T_STRUCT.forEach(function(s){ if (fd.has("st_" + s[0])) st[s[0]] = parseInt(fd.get("st_" + s[0]), 10) || 0; }); d.structure = st; }
-  else if (step === 6) { d.score = parseFloat(fd.get("score")) || d.score; d.author = g("author"); d.date = g("date") || d.date; d.lieu = g("lieu"); d.rachat = g("rachat"); d.accords = g("accords"); d.txt = g("txt"); }
+  if (step === "rapide") { d.score = parseFloat(fd.get("score")) || d.score; d.author = g("author"); d.date = g("date") || d.date; d.txt = g("txt"); }
+  else if (step === "prono") d.guess = {type:g("g_type"), cepage:g("g_cepage"), millesime:g("g_millesime"), region:g("g_region"), txt:g("g_txt")};
+  else if (step === "oeil") { d.couleur = g("couleur"); d.cpos = fd.get("cpos") ? parseInt(fd.get("cpos"), 10) : null; d.intensite = parseInt(fd.get("intensite"), 10) || 0; d.aspect = fd.getAll("aspect"); }
+  else if (step === "structure") { var st = {}; T_STRUCT.forEach(function(s){ if (fd.has("st_" + s[0])) st[s[0]] = parseInt(fd.get("st_" + s[0]), 10) || 0; }); d.structure = st; }
+  else if (step === "note") { d.score = parseFloat(fd.get("score")) || d.score; d.author = g("author"); d.date = g("date") || d.date; d.lieu = g("lieu"); d.rachat = g("rachat"); d.accords = g("accords"); d.txt = g("txt"); }
   S.draft = d; save();
 }
 function hexRgb(h){ var n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
@@ -225,24 +253,70 @@ function colorSet(t, touched){
 function scoreHTML(s){ return '<button type="button" class="sb" data-a="score" data-d="-0.5" aria-label="Baisser la note">−</button><span class="sv"><b>'+fmt(s)+'</b><small>/20</small><span>'+lbl(s)+'</span></span><button type="button" class="sb" data-a="score" data-d="0.5" aria-label="Monter la note">+</button>'; }
 function scoreSet(v){ v = Math.max(1, Math.min(20, v)); var o = $("so"), r = $("sr"); if (!o || !r) return; r.value = v; o.style.setProperty("--s", col(v)); o.innerHTML = scoreHTML(v); }
 
-function step(i){
+function kindPicker(d, auto){
+  var h = '<div class="types">'+Object.keys(T_TYPES).map(function(k){ var t = T_TYPES[k];
+    return '<button type="button" class="type" data-a="kind" data-v="'+k+'" aria-pressed="'+(d.type === k)+'">'+ICON[k]+t.label+'</button>'; }).join("")+'</div>';
+  if (d.type) h += '<span class="lbl">Famille'+(auto ? ' <small>· passe à la suite</small>' : '')+'</span><div class="fams">'+T_TYPES[d.type].fams.map(function(f){
+    return '<label class="fam"><input type="radio" name="famille" value="'+esc(f[0])+'"'+(d.famille === f[0] ? ' checked' : '')+'><span><i style="background:'+f[1]+'"></i>'+esc(f[0])+'</span></label>'; }).join("")+'</div>';
+  return h;
+}
+function photoRow(d){
+  var ph = V.photo || d.photoData || d.photo;
+  return '<div class="sec ph"><div class="pv" id="pv">'+(ph ? '<img src="'+esc(ph)+'" alt="Photo">' : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h3l2-2h6l2 2h3v12H4z M12 10a3.5 3.5 0 1 0 0 7a3.5 3.5 0 0 0 0-7z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>')+'</div>'+
+    '<label class="btn">Photo<input type="file" accept="image/*" capture="environment" data-photo hidden></label><label class="btn">Galerie<input type="file" accept="image/*" data-photo hidden></label></div>';
+}
+function identity(d){
+  var vin = d.type !== "biere" && d.type !== "spiritueux";
+  return '<div class="sec"><div class="grid">'+
+    field(vin ? "Domaine" : "Producteur", input("domName", d.domName, 'type="text" list="dlDom" placeholder="'+(vin ? 'Ex. Domaine Weinbach' : 'Ex. Brasserie Météor')+'"'), true)+
+    field("Cuvée / nom", input("nom", d.nom, 'type="text" list="dlNom" placeholder="Ex. Schlossberg"'), true)+
+    group(vin ? "Millésime" : "Année", pills("millesime", years(d.millesime), d.millesime ? String(d.millesime) : ""))+
+    '</div>'+datalist("dlDom", known("domName"))+datalist("dlNom", known("nom"))+'</div>';
+}
+function scoreBlock(d){
+  var sc = d.score || 14;
+  return '<div class="score" id="so" style="--s:'+col(sc)+'">'+scoreHTML(sc)+'</div>'+
+    '<input class="big-range" id="sr" name="score" type="range" min="1" max="20" step="0.5" value="'+sc+'" aria-label="Note sur 20">'+
+    '<div class="scale20" aria-hidden="true"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div>';
+}
+function step(id){
   var d = V.d, h = '';
+  if (id === "rapide") {
+    h += '<div class="sec">'+kindPicker(d, false)+'</div>'+photoRow(d)+identity(d);
+    h += '<div class="sec"><span class="lbl">Note</span>'+scoreBlock(d)+'<div class="grid">'+
+      field("Dégusté par", input("author", d.author || S.me, 'type="text" list="dlAut" placeholder="Ton prénom"'))+
+      field("Date", input("date", d.date || today(), 'type="date"'))+
+      field("Notes personnelles", text("txt", d.txt, "Ce qui t’a marqué, ce qu’a dit le vigneron…"), true)+
+      '</div>'+datalist("dlAut", known("author"))+'</div>';
+    return h;
+  }
+  if (id === "prono") {
+    var gs = d.guess || {};
+    h += '<p class="lead">Avant de voir l’étiquette : qu’est-ce que tu crois boire ?</p><div class="sec"><div class="grid">'+
+      group("Type", pills("g_type", ["Vin","Bière","Spiritueux"], gs.type))+
+      field("Cépage", input("g_cepage", gs.cepage, 'type="text" list="dlCep" placeholder="Ex. Riesling"'))+
+      field("Millésime", input("g_millesime", gs.millesime, 'type="number" inputmode="numeric" min="1900" max="2100" placeholder="Ex. 2019"'))+
+      field("Région", input("g_region", gs.region, 'type="text" list="dlReg" placeholder="Ex. Alsace"'), true)+
+      field("Mon intuition", text("g_txt", gs.txt, "Un grand cru ? Un vin nature ? Un vieux millésime ?"), true)+
+      '</div>'+datalist("dlCep", T_GRAPES)+datalist("dlReg", known("region"))+'</div>';
+    return h;
+  }
+  if (id === "reveal") {
+    h += '<p class="lead">L’étiquette est dévoilée. Tout est facultatif : tu pourras compléter plus tard depuis la fiche.</p>';
+    h += '<div class="sec">'+kindPicker(d, false)+'</div>'+photoRow(d)+identity(d)+
+      '<div class="sec"><div class="grid">'+field("Région", input("region", d.region, 'type="text" list="dlReg2"'))+field("Appellation", input("appellation", d.appellation, 'type="text"'))+
+      '<input type="hidden" name="cep_present" value="1">'+group("Cépages", pills("cepages", T_GRAPES.concat((d.cepages || []).filter(function(c){ return T_GRAPES.indexOf(c) < 0; })), d.cepages, true))+
+      '</div>'+datalist("dlReg2", known("region"))+'</div>';
+    return h;
+  }
+  var i = ["boisson","details","oeil","nez","bouche","structure","note"].indexOf(id);
   if (i === 0) {
-    h += '<div class="types">'+Object.keys(T_TYPES).map(function(k){ var t = T_TYPES[k];
-      return '<button type="button" class="type" data-a="kind" data-v="'+k+'" aria-pressed="'+(d.type === k)+'"><i>'+t.icon+'</i>'+t.label+'</button>'; }).join("")+'</div>';
-    if (d.type) h += '<span class="lbl">Famille <small>(passe à la suite)</small></span><div class="fams">'+T_TYPES[d.type].fams.map(function(f){
-      return '<label class="fam"><input type="radio" name="famille" value="'+esc(f[0])+'"'+(d.famille === f[0] ? ' checked' : '')+'><span><i style="background:'+f[1]+'"></i>'+esc(f[0])+'</span></label>'; }).join("")+'</div>';
-    else h += '<p class="empty">Vin, bière ou spiritueux ?</p>';
+    h += kindPicker(d, true);
+    if (!d.type) h += '<p class="empty">Vin, bière ou spiritueux ?</p>';
   }
   else if (i === 1) {
-    var ph = V.photo || d.photoData || d.photo, vin = d.type === "vin";
-    h += '<div class="sec ph"><div class="pv" id="pv">'+(ph ? '<img src="'+esc(ph)+'" alt="Photo">' : '📷')+'</div>'+
-      '<label class="btn">Photo<input type="file" accept="image/*" capture="environment" data-photo hidden></label><label class="btn">Galerie<input type="file" accept="image/*" data-photo hidden></label></div>';
-    h += '<div class="sec"><div class="grid">'+
-      field(vin ? "Domaine" : "Producteur", input("domName", d.domName, 'type="text" list="dlDom" placeholder="'+(vin ? 'Ex. Domaine Weinbach' : 'Ex. Brasserie Météor')+'"'), true)+
-      field("Cuvée / nom", input("nom", d.nom, 'type="text" list="dlNom" placeholder="Ex. Schlossberg"'), true)+
-      group(vin ? "Millésime" : "Année", pills("millesime", years(d.millesime), d.millesime ? String(d.millesime) : ""))+
-      '</div>'+datalist("dlDom", known("domName"))+datalist("dlNom", known("nom"))+'</div>';
+    var vin = d.type === "vin";
+    h += photoRow(d)+identity(d);
     h += '<details class="adv"'+(V.adv ? ' open' : '')+' data-adv><summary>Mode avancé : origine, cépages, parcelle, prix…</summary><div class="sec"><div class="grid">'+
       field("Autre année", input("autreAnnee", "", 'type="number" inputmode="numeric" min="1900" max="2100" placeholder="Ex. 1998"'))+
       field("Pays", input("pays", d.pays, 'type="text" list="dlPays" placeholder="France"'))+
@@ -265,11 +339,11 @@ function step(i){
       '<input type="hidden" name="couleur" id="cv" value="'+esc(d.couleur || "")+'"><input type="hidden" name="cpos" id="cp" value="'+(d.cpos != null ? d.cpos : "")+'">'+
       '<div class="sws">'+pal.map(function(c, k){ return '<button type="button" class="sw" data-a="sw" data-i="'+k+'" style="background:'+c[1]+'" aria-label="'+esc(c[0])+'" aria-pressed="'+(!!d.couleur && d.couleur.split("|")[0] === c[0])+'"></button>'; }).join("")+'</div>'+
       '<label class="rng"><span>Intensité</span><input type="range" min="1" max="5" name="intensite" value="'+(d.intensite || 3)+'" data-pw><output>'+T_POWER[(d.intensite || 3) - 1]+'</output></label></div>';
-    h += '<div class="sec"><span class="lbl">Aspect et texture</span>'+pills("aspect", T_ASPECT.base.concat(T_ASPECT[d.type] || []), d.aspect, true)+'</div>';
+    h += '<div class="sec"><span class="lbl">Aspect et texture</span>'+pills("aspect", T_ASPECT.base.concat(d.type ? T_ASPECT[d.type] || [] : ["Mousse fine","Bulles fines"]), d.aspect, true)+'</div>';
   }
   else if (i === 3 || i === 4) {
     var cur = fams(i === 3 ? d.aromes : d.saveurs);
-    h += '<div class="fhead"><p>'+(i === 3 ? 'Quels arômes sens-tu ?' : 'Quelles saveurs en bouche ?')+' Touche une famille.</p><button type="button" class="ic" data-a="search" aria-label="Rechercher un arôme">🔍</button></div>';
+    h += '<div class="fhead"><p>'+(i === 3 ? 'Quels arômes sens-tu ?' : 'Quelles saveurs en bouche ?')+' Touche une famille.</p><button type="button" class="ic" data-a="search" aria-label="Rechercher un arôme">'+ICON.search+'</button></div>';
     h += '<div class="flist">'+(i === 3 ? T_AROMES : T_SAVEURS).map(function(f){
       var c = cur[f[0]], v = c ? c.i : 0;
       return '<button type="button" class="frow'+(c ? ' on' : '')+'" data-a="fam" data-f="'+f[0]+'"><span class="fi">'+f[1]+'</span><span class="fn">'+esc(f[2])+(c && c.sub.length ? '<small>'+esc(c.sub.join(", "))+'</small>' : '')+'</span>'+
@@ -277,16 +351,13 @@ function step(i){
     }).join("")+'</div>';
   }
   else if (i === 5) {
-    h += '<div class="sec">'+T_STRUCT.filter(function(s){ return !s[4] || s[4](d); }).map(function(s){
+    h += '<div class="sec">'+T_STRUCT.filter(function(s){ return !s[4] || !d.type || s[4](d); }).map(function(s){
       var v = d.structure[s[0]] || 0;
       return '<label class="st"><span class="sl">'+s[1]+' <b>'+(v ? v + '/5' : '–')+'</b></span><i class="a">'+s[2]+'</i><input type="range" min="0" max="5" name="st_'+s[0]+'" value="'+v+'" data-st><i class="b">'+s[3]+'</i></label>';
     }).join("")+'</div>';
   }
   else {
-    var sc = d.score || 14;
-    h += '<div class="sec"><div class="score" id="so" style="--s:'+col(sc)+'">'+scoreHTML(sc)+'</div>'+
-      '<input class="big-range" id="sr" name="score" type="range" min="1" max="20" step="0.5" value="'+sc+'" aria-label="Note sur 20">'+
-      '<div class="scale20"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div><div class="grid">'+
+    h += '<div class="sec">'+scoreBlock(d)+'<div class="grid">'+
       field("Dégusté par", input("author", d.author || S.me, 'type="text" list="dlAut" placeholder="Ton prénom"'))+
       field("Date", input("date", d.date || today(), 'type="date"'))+
       field("Lieu", input("lieu", d.lieu, 'type="text" list="dlLieu" placeholder="Au domaine, au resto…"'), true)+
@@ -298,16 +369,28 @@ function step(i){
   return h;
 }
 function wiz(){
-  var i = V.step, d = V.d, last = T_STEPS.length - 1;
-  var h = top(d.id ? "Modifier" : "Nouvelle dégustation", (i + 1)+'/'+T_STEPS.length+' · '+T_STEPS[i]+(d.type ? ' · '+T_TYPES[d.type].label+(d.famille ? ' '+d.famille.toLowerCase() : '') : ''));
-  h += '<ol class="prog">'+T_STEPS.map(function(s, k){
-    return '<li><button type="button" data-a="go" data-i="'+k+'" class="'+(k === i ? 'on' : k < i ? 'done' : '')+'"'+(k > 0 && !d.type ? ' disabled' : '')+' aria-label="'+esc(s)+'"'+(k === i ? ' aria-current="step"' : '')+'><span>'+esc(s)+'</span></button></li>';
+  var i = V.step, d = V.d, st = stepsOf(d), last = st.length - 1, m = MODES[d.mode] || MODES.normal, lock = d.mode === "normal" && !d.type;
+  var h = top(d.id ? "Modifier" : m.label, (st.length > 1 ? (i + 1)+'/'+st.length+' · '+st[i][1] : 'Un seul écran')+(d.type && d.mode !== "aveugle" ? ' · '+T_TYPES[d.type].label+(d.famille ? ' '+d.famille.toLowerCase() : '') : ''));
+  if (st.length > 1) h += '<ol class="prog">'+st.map(function(s, k){
+    return '<li><button type="button" data-a="go" data-i="'+k+'" class="'+(k === i ? 'on' : k < i ? 'done' : '')+'"'+(k > 0 && lock ? ' disabled' : '')+' aria-label="'+esc(s[1])+'"'+(k === i ? ' aria-current="step"' : '')+'><span>'+esc(s[1])+'</span></button></li>';
   }).join("")+'</ol>';
-  h += '<form id="wf" data-step="'+i+'" autocomplete="off">'+step(i)+
+  h += '<form id="wf" data-step="'+st[i][0]+'" autocomplete="off">'+step(st[i][0])+
     '<div class="bar-nav">'+(i > 0 ? '<button type="button" class="btn" data-a="prev">‹ Retour</button>' : '<span></span>')+
     (i < last ? '<button type="button" class="btn pri" data-a="next">Suivant ›</button>' : '<button type="submit" class="btn pri">Enregistrer</button>')+'</div></form>';
   return h;
 }
+function modePick(){
+  var h = top("Nouvelle dégustation", "Choisis ta façon de déguster", true);
+  if (S.draft) h += '<button class="btn block" type="button" data-a="resume" style="margin-bottom:var(--s-s)">Reprendre la saisie en cours</button>';
+  h += '<div class="modes">'+["rapide","normal","aveugle"].map(function(k){ var m = MODES[k];
+    return '<button class="mode" type="button" data-a="mode" data-v="'+k+'"><span class="mode-ic" aria-hidden="true">'+MODE_IC[k]+'</span><span><b>'+m.label+'</b><small>'+m.desc+'</small></span></button>'; }).join("")+'</div>';
+  return h;
+}
+var MODE_IC = {
+  rapide:'<svg viewBox="0 0 32 32"><path d="M17 3 7 18h8l-2 11 12-17h-8z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+  normal:'<svg viewBox="0 0 32 32"><path d="M10 3h12c1 6 1 10-2 13-1.2 1.2-2.6 1.8-4 1.8s-2.8-.6-4-1.8C9 13 9 9 10 3zM16 18v9M11 29h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9.6 9h12.8" stroke="currentColor" stroke-width="1.2" opacity=".5"/></svg>',
+  aveugle:'<svg viewBox="0 0 32 32"><path d="M3 16c3.5-5 8-8 13-8s9.5 3 13 8c-3.5 5-8 8-13 8s-9.5-3-13-8z M5 27 27 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="16" cy="16" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>'
+};
 function famText(obj, lst){
   obj = fams(obj);
   return lst.filter(function(f){ return obj[f[0]]; }).map(function(f){ var c = obj[f[0]];
@@ -323,7 +406,16 @@ function view(){
     '<div class="row"><button class="btn" type="button" data-a="edit">Modifier</button><button class="btn" type="button" data-a="again" title="Nouvelle dégustation du même vin">Re-déguster</button></div></div>';
   var kv = [["Producteur", d.domName], ["Cuvée", d.nom], [d.type === "vin" ? "Millésime" : "Année", d.millesime], ["Origine", [d.appellation, d.region, d.pays].filter(Boolean).join(", ")], ["Parcelle", d.parcelle],
     ["Cépages", (d.cepages || []).join(", ")], ["Degré", d.degre ? d.degre + " %" : ""], ["Prix", d.prix ? String(d.prix).replace(".", ",") + " €" : ""], ["Élevage", d.elevage], ["Acheté / goûté", d.achat], ["Lieu", d.lieu], ["Infos", d.infos]];
-  h += '<div class="sec"><span class="lbl">Identité</span><dl class="kv">'+kv.filter(function(r){ return r[1]; }).map(function(r){ return '<dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd>'; }).join("")+'</dl></div>';
+  if (d.mode === "aveugle") {
+    var gs = d.guess || {}, real = {type:(T_TYPES[d.type] || {}).label, cepage:(d.cepages || []).join(", "), millesime:d.millesime, region:d.region};
+    var ok = function(a, b){ return a && b && (norm(b).indexOf(norm(a)) >= 0 || norm(a) === norm(b)); };
+    var rows = [["Type", gs.type, real.type], ["Cépage", gs.cepage, real.cepage], ["Millésime", gs.millesime, real.millesime], ["Région", gs.region, real.region]].filter(function(r){ return r[1] || r[2]; });
+    h += '<div class="sec"><span class="lbl">À l’aveugle · pronostic et réalité</span>'+(rows.length ? '<table class="prono"><thead><tr><th></th><th>Pronostic</th><th>Réalité</th></tr></thead><tbody>'+rows.map(function(r){
+      return '<tr><th>'+r[0]+'</th><td>'+esc(r[1] || "–")+'</td><td>'+esc(r[2] || "?")+(ok(r[1], r[2]) ? ' <span class="hit" aria-label="trouvé">✓</span>' : '')+'</td></tr>'; }).join("")+'</tbody></table>' : '')+
+      (gs.txt ? '<p class="quote">« '+esc(gs.txt)+' »</p>' : '')+
+      (!d.type ? '<button class="btn pri block" type="button" data-a="reveal">Révéler l’étiquette</button>' : '')+'</div>';
+  }
+  h += '<div class="sec"><span class="lbl">Identité'+(d.mode && d.mode !== "normal" ? ' · '+MODES[d.mode].short.toLowerCase() : '')+'</span><dl class="kv">'+kv.filter(function(r){ return r[1]; }).map(function(r){ return '<dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd>'; }).join("")+'</dl></div>';
   h += '<div class="sec txt"><span class="lbl">L’œil</span>'+(c ? '<p><span class="swatch" style="background:'+c[1]+'"></span><b>'+esc(c[0])+'</b> · intensité '+T_POWER[(d.intensite || 3) - 1].toLowerCase()+'</p>' : '<p class="muted">–</p>')+((d.aspect || []).length ? '<p>'+esc(d.aspect.join(", "))+'</p>' : '')+'</div>';
   h += '<div class="sec txt"><span class="lbl">Le nez</span>'+(famText(d.aromes, T_AROMES) || '<p class="muted">–</p>')+'</div>';
   h += '<div class="sec txt"><span class="lbl">La bouche</span>'+(famText(d.saveurs, T_SAVEURS) || '<p class="muted">–</p>')+'</div>';
@@ -341,7 +433,7 @@ function stats(){
   h += '<div class="kpis"><div class="kpi"><b>'+all.length+'</b><small>dégustations</small></div><div class="kpi"><b>'+fmt(avg)+'</b><small>note moyenne</small></div><div class="kpi"><b>'+known("domName").length+'</b><small>producteurs</small></div></div>';
   if (!scored.length) return h + '<p class="empty">Note quelques bouteilles pour voir ton palmarès.</p>';
   var by = V.type;
-  h += '<div class="chips">'+[["all","Tout"],["vin","🍷 Vins"],["biere","🍺 Bières"],["spiritueux","🥃 Spiritueux"]].map(function(f){
+  h += '<div class="chips">'+[["all","Tout"],["vin","Vins"],["biere","Bières"],["spiritueux","Spiritueux"]].map(function(f){
     return '<button class="chip" type="button" data-a="type" data-v="'+f[0]+'" aria-pressed="'+(by === f[0])+'">'+f[1]+'</button>'; }).join("")+'</div>';
   var rows = scored.filter(function(d){ return by === "all" || d.type === by; }).sort(function(a, b){ return b.score - a.score; });
   h += '<span class="lbl">Top 10</span><div class="list" style="margin-bottom:.6rem">'+rows.slice(0, 10).map(function(d, k){ return card(d, k + 1); }).join("")+'</div>';
@@ -368,14 +460,15 @@ function settings(){
   return h;
 }
 function welcome(){
-  return '<div class="welcome"><h1>Taste<span style="color:var(--accent)">vin</span></h1><p>Ton carnet de dégustation : robe, nez, bouche, structure et note sur 20. Vins, bières et spiritueux.</p>'+
+  return '<div class="welcome">'+VINE+'<h1>Taste<i>vin</i></h1><p>Le carnet de dégustation : robe, nez, bouche, structure et note sur vingt. Vins, bières et spiritueux.</p>'+
     '<form id="wl" class="sec"><div class="grid">'+field("Ton prénom", input("me", S.me, 'type="text" required autocomplete="given-name"'), true)+
     (API ? field("Code de la cave partagée (facultatif)", input("code", "", 'type="text" autocomplete="off" placeholder="Donné par l’organisateur"'), true) : '')+
     '</div><div class="row" style="margin-top:.6rem"><button class="btn pri block" type="submit">Commencer</button></div></form></div>';
 }
-var SCREENS = {home:home, wiz:wiz, view:view, stats:stats, settings:settings, welcome:welcome};
+var SCREENS = {home:home, wiz:wiz, view:view, stats:stats, settings:settings, welcome:welcome, mode:modePick};
 function render(){
   document.documentElement.classList.toggle("wiz", V.screen === "wiz" || V.screen === "welcome");
+  document.documentElement.classList.toggle("in-wiz", V.screen === "wiz");
   $("app").innerHTML = (SCREENS[V.screen] || home)();
   Array.prototype.forEach.call(document.querySelectorAll("#nav [data-go]"), function(b){
     var g = b.getAttribute("data-go"), on = g === V.screen || (g === "home" && V.screen === "view");
@@ -389,14 +482,14 @@ function editing(){ var a = document.activeElement; return !!(a && /^(INPUT|SELE
 /* Navigation de la saisie */
 function goStep(i){
   sheetClose(); collect();
-  if (i > 0 && !V.d.type) { toast("Choisis d’abord le type de boisson"); return; }
-  V.step = Math.max(0, Math.min(T_STEPS.length - 1, i)); render(); window.scrollTo(0, 0);
+  if (i > 0 && V.d.mode === "normal" && !V.d.type) { toast("Choisis d’abord le type de boisson"); return; }
+  V.step = Math.max(0, Math.min(stepsOf(V.d).length - 1, i)); render(); window.scrollTo(0, 0);
 }
 function startWiz(d){ V.d = d; V.step = 0; V.photo = null; S.draft = d; save(); V.back = [{screen:V.screen === "wiz" ? "home" : V.screen, id:V.id}]; V.screen = "wiz"; render(); window.scrollTo(0, 0); }
 function saveEntry(){
   collect();
   var d = V.d;
-  if (!d.type) { V.step = 0; render(); toast("Choisis le type de boisson"); return; }
+  if (!d.type && d.mode !== "aveugle") { V.step = 0; render(); toast("Choisis le type de boisson"); return; }
   if (!d.author) { toast("Indique qui déguste"); return; }
   if (!S.me) S.me = d.author;
   var old = d.id ? S.t[d.id] || {} : {}, e = JSON.parse(JSON.stringify(d));
@@ -408,7 +501,7 @@ function saveEntry(){
 }
 
 /* Fenêtre d’une famille d’arômes */
-function famList(){ return V.step === 3 ? T_AROMES : T_SAVEURS; }
+function famList(){ return sid() === "nez" ? T_AROMES : T_SAVEURS; }
 function famDef(k){ return famList().filter(function(f){ return f[0] === k; })[0]; }
 function sheetChips(){
   var sh = V.sheet, q = norm(sh.q);
@@ -426,7 +519,7 @@ function sheetChips(){
   return h;
 }
 function sheetOpen(fam, preset){
-  var cur = fams(V.step === 3 ? V.d.aromes : V.d.saveurs)[fam] || {sub:[], i:0};
+  var cur = fams(sid() === "nez" ? V.d.aromes : V.d.saveurs)[fam] || {sub:[], i:0};
   V.sheet = {fam:fam, i:cur.i, sub:cur.sub.slice(), q:""};
   if (preset && V.sheet.sub.indexOf(preset) < 0) { V.sheet.sub.push(preset); if (!V.sheet.i) V.sheet.i = 5; }
   sheetRender();
@@ -438,13 +531,13 @@ function sheetRender(){
     '<button type="button" class="sh-x" data-a="shclose" aria-label="Fermer sans enregistrer">✕</button></div>'+
     (f ? '<p class="sh-v" id="shv">Intensité : <b>'+sh.i+'/10</b></p><input type="range" id="shi" min="0" max="10" value="'+sh.i+'" aria-label="Intensité">'+
       '<div class="scale"><span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span></div>' : '')+
-    '<label class="search"><span aria-hidden="true">🔍</span><input id="shq" type="search" value="'+esc(sh.q)+'" placeholder="Rechercher un arôme…" autocomplete="off"></label>'+
+    '<label class="search">'+ICON.search+'<input id="shq" type="search" value="'+esc(sh.q)+'" placeholder="Rechercher un arôme…" autocomplete="off"></label>'+
     '<div id="shc">'+sheetChips()+'</div><div class="sh-f"><button type="button" class="btn" data-a="shclose">Annuler</button>'+(f ? '<button type="button" class="btn pri" data-a="shok">Valider</button>' : '')+'</div></div>';
   document.documentElement.classList.add("sh-open");
 }
 function sheetClose(){ var el = $("sheet"); if (el) el.remove(); V.sheet = null; document.documentElement.classList.remove("sh-open"); }
 function sheetSave(){
-  var sh = V.sheet, k = V.step === 3 ? "aromes" : "saveurs", obj = fams(V.d[k]);
+  var sh = V.sheet, k = sid() === "nez" ? "aromes" : "saveurs", obj = fams(V.d[k]);
   if (sh.i > 0 || sh.sub.length) obj[sh.fam] = {sub:sh.sub, i:sh.i || 5}; else delete obj[sh.fam];
   V.d[k] = obj; S.draft = V.d; save(); sheetClose(); render();
 }
@@ -532,7 +625,7 @@ document.addEventListener("click", function(e){
   var g = e.target.closest("[data-go]");
   if (g) {
     var to = g.getAttribute("data-go");
-    if (to === "new") { startWiz(S.draft && !S.draft.id ? S.draft : newDraft()); return; }
+    if (to === "new") { V.back = [{screen:V.screen === "wiz" ? "home" : V.screen, id:V.id}]; V.screen = "mode"; render(); window.scrollTo(0, 0); return; }
     V.back = []; V.screen = to; render(); window.scrollTo(0, 0); return;
   }
   if (e.target.id === "sheet") { sheetClose(); return; }
@@ -541,11 +634,13 @@ document.addEventListener("click", function(e){
   if (a === "back") back();
   else if (a === "quit") { collect(); sheetClose(); V.screen = "home"; V.back = []; render(); toast("Saisie gardée : « Reprendre » sur le carnet"); }
   else if (a === "resume") startWiz(S.draft);
+  else if (a === "mode") startWiz(newDraft(b.getAttribute("data-v")));
+  else if (a === "reveal") { var rv = JSON.parse(JSON.stringify(S.t[V.id])); startWiz(rv); V.step = stepsOf(rv).length - 1; render(); }
   else if (a === "view") { V.id = b.getAttribute("data-id"); go("view"); }
   else if (a === "type") { V.type = b.getAttribute("data-v"); render(); }
   else if (a === "sort") { V.sort = V.sort === "date" ? "score" : "date"; render(); }
   else if (a === "sync") sync();
-  else if (a === "kind") { collect(); var t = b.getAttribute("data-v"); if (V.d.type !== t) { V.d.type = t; V.d.famille = ""; V.d.couleur = ""; } S.draft = V.d; save(); render(); }
+  else if (a === "kind") { collect(); var t = b.getAttribute("data-v"); if (V.d.type !== t) { V.d.type = t; V.d.famille = ""; if (V.d.mode !== "aveugle") V.d.couleur = ""; }   /* à l’aveugle, la couleur vue garde sa valeur */ S.draft = V.d; save(); render(); }
   else if (a === "next") goStep(V.step + 1);
   else if (a === "prev") goStep(V.step - 1);
   else if (a === "go") goStep(parseInt(b.getAttribute("data-i"), 10));
@@ -564,7 +659,7 @@ document.addEventListener("click", function(e){
   else if (a === "shclose") sheetClose();
   else if (a === "edit") startWiz(JSON.parse(JSON.stringify(S.t[V.id])));
   else if (a === "again") {
-    var src = S.t[V.id], d = newDraft();
+    var src = S.t[V.id], d = newDraft("normal");
     ["type","famille","domName","nom","millesime","pays","region","appellation","parcelle","cepages","degre","prix","elevage"].forEach(function(k){ if (src[k] != null) d[k] = JSON.parse(JSON.stringify(src[k])); });
     if (src.photo) d.photo = src.photo;
     startWiz(d); V.step = 2; render();
@@ -580,7 +675,7 @@ document.addEventListener("click", function(e){
 document.addEventListener("submit", function(e){
   e.preventDefault();
   var f = e.target, fd = new FormData(f);
-  if (f.id === "wf") { if (V.step < T_STEPS.length - 1) goStep(V.step + 1); else saveEntry(); }
+  if (f.id === "wf") { if (V.step < stepsOf(V.d).length - 1) goStep(V.step + 1); else saveEntry(); }
   else if (f.id === "sf" || f.id === "wl") {
     S.me = trim(fd.get("me")) || S.me; if (fd.has("code")) S.code = trim(fd.get("code")); S.local = true; V.err = ""; save();
     V.screen = "home"; V.back = []; render(); sync(); toast(f.id === "wl" ? "Bienvenue " + S.me + " !" : "Réglages enregistrés");
@@ -589,7 +684,7 @@ document.addEventListener("submit", function(e){
 document.addEventListener("change", function(e){
   var t = e.target;
   if (t.matches(".pills.one input") && t.checked) Array.prototype.forEach.call(t.closest(".pills").querySelectorAll("input"), function(i){ if (i !== t) i.checked = false; });
-  if (t.name === "famille" && t.closest("#wf")) setTimeout(function(){ if (V.screen === "wiz" && V.step === 0) goStep(1); }, 150);
+  if (t.name === "famille" && t.closest("#wf")) setTimeout(function(){ if (V.screen === "wiz" && sid() === "boisson") goStep(1); }, 150);
   if (t.hasAttribute("data-photo") && t.files && t.files[0]) {
     resize(t.files[0]).then(function(data){ V.photo = data; $("pv").innerHTML = '<img src="'+data+'" alt="Photo">'; }, function(){ toast("Photo illisible, réessaie"); });
     t.value = "";

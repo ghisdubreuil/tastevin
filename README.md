@@ -10,20 +10,30 @@ On peut l’ajouter à l’écran d’accueil. Elle marche hors ligne.
 
 - **Carnet** : toutes les dégustations, avec recherche (domaine, cuvée, cépage, millésime…),
   filtre vin, bière ou spiritueux, et tri par date ou par note.
-- **Déguster**, en 7 écrans :
-  1. le type de boisson et sa famille ;
-  2. les détails : producteur, cuvée, millésime, photo, avec un mode avancé (origine,
-     parcelle, cépages, degré, prix, élevage) ;
-  3. l’œil : un verre qui prend la couleur choisie sur un dégradé propre à la boisson,
-     puis l’aspect ;
-  4. le nez, puis 5. la bouche : 14 familles d’arômes, chacune avec ses sous-arômes, une
-     recherche et une intensité de 0 à 10 ;
-  6. la structure : acidité, sucre, corps, attaque, longueur…
-  7. la note sur 20, le dégustateur, la date, le lieu, les accords et un commentaire.
+- **Déguster**, au choix de trois modes :
+  - **Fiche rapide** : la bouteille, une photo, la note et tes remarques, sur un seul écran,
+    quand le temps manque.
+  - **Dégustation complète**, en 7 écrans : la boisson et sa famille ; les détails, avec un
+    mode avancé (origine, parcelle, cépages, degré, prix, élevage) ; l’œil, avec un verre
+    qui prend la couleur choisie sur un dégradé propre à la boisson ; le nez et la bouche,
+    avec 14 familles d’arômes, leurs sous-arômes, une recherche et une intensité de 0 à 10 ;
+    la structure ; la note sur 20 et le commentaire.
+  - **À l’aveugle** : l’œil, le nez, la bouche, la structure et la note, sans rien savoir
+    du vin. Vient ensuite un pronostic (type, cépage, millésime, région), puis la
+    révélation de l’étiquette, qu’on peut aussi faire plus tard depuis la fiche. La fiche
+    compare le pronostic à la réalité.
 - **Fiche** : tout le détail, avec « Modifier » et « Re-déguster » (une nouvelle note du même vin).
 - **Palmarès** : top 10, producteurs et arômes les plus cités.
 - **Réglages** : prénom, code de cave partagée, export JSON ou CSV, import (y compris
   l’export de Vinlo).
+
+## Design
+
+Fond blanc et ivoire, filets fins, vert de vigne, bordeaux et or. Cormorant Garamond pour
+les titres, à la manière d’une étiquette de domaine, et Manrope pour l’interface. Les
+tailles de texte et les espacements sont fluides (`clamp`) et les grilles se replient
+d’elles-mêmes : rien ne déborde, de 240 px de large à l’ordinateur, même texte agrandi à
+200 %.
 
 ## Fichiers
 

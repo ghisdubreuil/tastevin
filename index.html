@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#F6F1EC" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#16110F" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Tastevin">
@@ -15,16 +14,16 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <main class="app" id="app" aria-live="polite"></main>
 <nav class="nav" id="nav" aria-label="Navigation">
-  <button type="button" data-go="home"><span aria-hidden="true">📖</span>Carnet</button>
-  <button type="button" data-go="new" class="nav-new" aria-label="Nouvelle dégustation"><span aria-hidden="true">＋</span>Déguster</button>
-  <button type="button" data-go="stats"><span aria-hidden="true">🏆</span>Palmarès</button>
-  <button type="button" data-go="settings"><span aria-hidden="true">⚙️</span>Réglages</button>
+  <button type="button" data-go="home"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H11v16H5.5c-.8 0-1.5-.7-1.5-1.5z M13 4h5.5c.8 0 1.5.7 1.5 1.5v13c0 .8-.7 1.5-1.5 1.5H13z"/></svg>Carnet</button>
+  <button type="button" data-go="new" class="nav-new"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Déguster</button>
+  <button type="button" data-go="stats"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z M12 13v4 M8.5 20h7 M8 6H5c0 2.5 1.5 4 3.2 4.3 M16 6h3c0 2.5-1.5 4-3.2 4.3"/></svg>Palmarès</button>
+  <button type="button" data-go="settings"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Réglages</button>
 </nav>
 <div class="toast" id="toast" role="status"></div>
 <noscript><p style="padding:2rem">Tastevin a besoin de JavaScript.</p></noscript>
