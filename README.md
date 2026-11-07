@@ -23,6 +23,18 @@ On peut l’ajouter à l’écran d’accueil. Elle marche hors ligne.
     bonne réponse dans l’appli : les pronostics de chacun sont rangés par date dans le
     palmarès, pour les comparer ensemble lors de la session.
   - Dans tous les modes, la note reste vierge tant qu’on n’a pas noté.
+- **Sessions** à l’aveugle, en groupe :
+  - l’**organisateur** (mode activé dans Réglages par un mot de passe) crée la session,
+    son thème réel caché et ses bouteilles numérotées 1, 2, 3… sans limite, avec
+    l’identité complète et une photo ;
+  - chaque **participant** ouvre la session : les bouteilles s’affichent en tuiles, il
+    déguste et donne ses pronostics (cépages, région, château), voit ceux de la tablée et
+    propose le thème commun ;
+  - l’organisateur **déclare la fin** : les pronostics sont comparés à la réalité, avec
+    une tolérance aux accents et aux fautes de frappe, et le vainqueur est désigné.
+    Barème : 3 points par cépage trouvé (−1 par cépage faux), 2 pour la région, 3 pour le
+    château, 5 pour le thème.
+  - Tout le monde doit utiliser le même code de cave.
 - **Fiche** : tout le détail, avec « Modifier » et « Re-déguster » (une nouvelle note du même vin).
 - **Palmarès** : top 10, producteurs et arômes les plus cités.
 - **Réglages** : prénom, code de cave partagée, export JSON ou CSV, import (y compris

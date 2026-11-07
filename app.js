@@ -18,10 +18,11 @@ var toastT = 0;
 function toast(msg){ var t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(function(){ t.classList.remove("on"); }, 2600); }
 
 /* ---------- Données ---------- */
-var S = {t:{}, queue:[], me:"", code:"", local:false, last:0, draft:null};
+var S = {t:{}, queue:[], me:"", code:"", local:false, last:0, draft:null, org:false};
 try { var saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) Object.keys(S).forEach(function(k){ if (saved[k] != null) S[k] = saved[k]; }); } catch(e) {}
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) { toast("Mémoire du téléphone pleine : synchronise pour libérer les photos"); } }
-function list(){ return Object.keys(S.t).map(function(k){ return S.t[k]; }).filter(function(x){ return !x.deleted; }); }
+/* Le carnet ne liste que les dégustations : sessions, bouteilles de session et thèmes sont rangés à part */
+function list(){ return Object.keys(S.t).map(function(k){ return S.t[k]; }).filter(function(x){ return !x.deleted && (x.kind || "tasting") === "tasting"; }); }
 function put(item){ S.t[item.id] = item; if (S.queue.indexOf(item.id) < 0) S.queue.push(item.id); save(); sync(); }
 
 var T_TYPES = {
@@ -129,7 +130,7 @@ function fmt(s){ return s == null || s === "" ? "–" : (Math.round(s * 10) / 10
 function lbl(s){ return s < 8 ? "À oublier" : s < 11 ? "Bof" : s < 13 ? "Correct" : s < 15 ? "Bon" : s < 17 ? "Très bon" : s < 19 ? "Superbe" : "Légendaire"; }
 function guessOf(d){ var g = d.guess || {}; return {cepages:g.cepages || (g.cepage ? [g.cepage] : []), region:g.region || "", chateau:g.chateau || ""}; }
 function guessText(d){ var g = guessOf(d); return [g.cepages.join(", "), g.region, g.chateau].filter(Boolean).join(" · "); }
-function title(d){ return d.nom || (d.mode === "aveugle" && !d.domName ? "Vin à l’aveugle" : d.famille || (T_TYPES[d.type] || {}).label || "Dégustation"); }
+function title(d){ if (d.sessionId && !d.nom) return (d.sessionName || "Session")+" · bouteille "+d.bottleN; return d.nom || (d.mode === "aveugle" && !d.domName ? "Vin à l’aveugle" : d.famille || (T_TYPES[d.type] || {}).label || "Dégustation"); }
 var T_BLIND = [["Vert pâle","#E6EAB2"],["Jaune paille","#E8CF6E"],["Doré","#DDB84A"],["Ambré","#B57B2C"],["Pêche","#F4B092"],["Saumon","#EE9779"],["Rubis","#9B1B30"],["Grenat","#7A1F2B"],["Tuilé","#8F3E2A"],["Brun","#5A3420"]];
 function palette(d){ return !d.type ? T_BLIND : T_COLORS[d.type === "vin" ? "vin:" + d.famille : d.type] || T_COLORS["vin:Blanc"]; }
 function hexOf(d){ return d.couleur ? d.couleur.split("|")[1] : (((T_TYPES[d.type] || {}).fams || []).filter(function(f){ return f[0] === d.famille; })[0] || [])[1] || "var(--panel-2)"; }
@@ -379,7 +380,7 @@ function step(id){
 }
 function wiz(){
   var i = V.step, d = V.d, st = stepsOf(d), last = st.length - 1, m = MODES[d.mode] || MODES.normal, lock = d.mode === "normal" && !d.type;
-  var h = top(d.id ? "Modifier" : m.label, (st.length > 1 ? (i + 1)+'/'+st.length+' · '+st[i][1] : 'Un seul écran')+(d.type && d.mode !== "aveugle" ? ' · '+T_TYPES[d.type].label+(d.famille ? ' '+d.famille.toLowerCase() : '') : ''));
+  var h = top(d.sessionId ? "Bouteille "+d.bottleN : d.id ? "Modifier" : m.label, (d.sessionId ? (d.sessionName || "Session")+" · " : "")+(st.length > 1 ? (i + 1)+'/'+st.length+' · '+st[i][1] : 'Un seul écran')+(d.type && d.mode !== "aveugle" ? ' · '+T_TYPES[d.type].label+(d.famille ? ' '+d.famille.toLowerCase() : '') : ''));
   if (st.length > 1) h += '<ol class="prog">'+st.map(function(s, k){
     return '<li><button type="button" data-a="go" data-i="'+k+'" class="'+(k === i ? 'on' : k < i ? 'done' : '')+'"'+(k > 0 && lock ? ' disabled' : '')+' aria-label="'+esc(s[1])+'"'+(k === i ? ' aria-current="step"' : '')+'><span>'+esc(s[1])+'</span></button></li>';
   }).join("")+'</ol>';
@@ -415,6 +416,13 @@ function view(){
     '<div class="row"><button class="btn" type="button" data-a="edit">Modifier</button><button class="btn" type="button" data-a="again" title="Nouvelle dégustation du même vin">Re-déguster</button></div></div>';
   var kv = [["Producteur", d.domName], ["Cuvée", d.nom], [d.type === "vin" ? "Millésime" : "Année", d.millesime], ["Origine", [d.appellation, d.region, d.pays].filter(Boolean).join(", ")], ["Parcelle", d.parcelle],
     ["Cépages", (d.cepages || []).join(", ")], ["Degré", d.degre ? d.degre + " %" : ""], ["Prix", d.prix ? String(d.prix).replace(".", ",") + " €" : ""], ["Élevage", d.elevage], ["Acheté / goûté", d.achat], ["Lieu", d.lieu], ["Infos", d.infos]];
+  var ses = d.sessionId ? S.t[d.sessionId] : null;
+  if (ses && ses.closed) {
+    var rb = sBottles(ses.id).filter(function(x){ return x.n === d.bottleN; })[0];
+    if (rb) { var pt = bottlePoints(d, rb);
+      h += '<div class="sec"><span class="lbl">La réalité · '+pt.pts+' point'+(pt.pts > 1 ? 's' : '')+'</span><dl class="kv">'+[["Vin", bottleName(rb)], ["Cépages", (rb.cepages || []).join(", ")], ["Région", rb.region || rb.appellation]].filter(function(r){ return r[1]; }).map(function(r){
+        return '<dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd>'; }).join("")+'</dl></div>'; }
+  }
   if (d.mode === "aveugle") {
     var gu = guessOf(d);
     h += '<div class="sec"><span class="lbl">Mes pronostics</span><dl class="kv">'+[["Cépages", gu.cepages.join(", ")], ["Région", gu.region], ["Château", gu.chateau]].map(function(r){
@@ -473,6 +481,9 @@ function settings(){
   h += '<div class="sec"><span class="lbl">Sauvegarde</span><div class="row"><button class="btn" type="button" data-a="export">Exporter (JSON)</button><button class="btn" type="button" data-a="csv">Exporter (tableur CSV)</button>'+
     '<label class="btn">Importer<input type="file" accept="application/json,.json" data-import hidden></label></div>'+
     '<p class="muted" style="font-size:.8rem;margin:.5rem 0 0">L’import accepte aussi l’export de Vinlo (dégustations avancées).</p></div>';
+  h += '<div class="sec"><span class="lbl">Organisateur</span>'+(isOrg()
+    ? '<p style="margin-bottom:var(--s-xs)">Mode organisateur activé : tu peux créer des sessions et préparer les bouteilles.</p><button class="btn" type="button" data-a="orgoff">Désactiver</button>'
+    : '<form id="orgf" class="theme-f"><input class="inp" name="pass" type="password" autocomplete="off" placeholder="Mot de passe organisateur" aria-label="Mot de passe organisateur"><button class="btn" type="submit">Activer</button></form>')+'</div>';
   h += '<p class="muted" style="font-size:.8rem">Tastevin garde tout sur ce téléphone, même hors ligne. Avec un code de cave, les dégustations sont partagées et sauvegardées sur le serveur.</p>';
   return h;
 }
@@ -488,7 +499,7 @@ function render(){
   document.documentElement.classList.toggle("in-wiz", V.screen === "wiz");
   $("app").innerHTML = (SCREENS[V.screen] || home)();
   Array.prototype.forEach.call(document.querySelectorAll("#nav [data-go]"), function(b){
-    var g = b.getAttribute("data-go"), on = g === V.screen || (g === "home" && V.screen === "view");
+    var g = b.getAttribute("data-go"), on = g === V.screen || (g === "home" && V.screen === "view") || (g === "sessions" && ["session","sedit","sbottle"].indexOf(V.screen) >= 0);
     if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
   });
 }
@@ -513,7 +524,9 @@ function saveEntry(){
   e.id = d.id || uid(); e.createdAt = old.createdAt || Date.now(); e.updatedAt = Date.now();
   if (!e.photoData && old.photo) e.photo = old.photo;
   S.draft = null; put(e);
-  V.id = e.id; V.back = [{screen:"home"}]; V.screen = "view"; render(); window.scrollTo(0, 0);
+  if (e.sessionId) { V.sid = e.sessionId; V.back = [{screen:"sessions"}]; V.screen = "session"; }
+  else { V.id = e.id; V.back = [{screen:"home"}]; V.screen = "view"; }
+  render(); window.scrollTo(0, 0);
   toast(e.score ? "Enregistré : " + fmt(e.score) + "/20" : "Enregistré");
 }
 
@@ -614,7 +627,7 @@ function sync(){
   V.busy = true; line();
   var pe = null;
   push().catch(function(e){ pe = e; }).then(pull).then(function(){ if (pe) throw pe; S.last = Date.now(); V.err = ""; }, function(e){ V.err = errText(e); })
-    .then(function(){ V.busy = false; save(); if (["home","stats","view"].indexOf(V.screen) >= 0 && !editing() && !V.sheet) render(); else line(); });
+    .then(function(){ V.busy = false; save(); if (["home","stats","view","sessions","session"].indexOf(V.screen) >= 0 && !editing() && !V.sheet) render(); else line(); });
 }
 setInterval(function(){ if (document.visibilityState === "visible") sync(); }, 60000);
 window.addEventListener("online", sync);
@@ -637,6 +650,232 @@ function importJson(data){
   save(); sync(); return n;
 }
 
+/* ---------- Sessions de dégustation à l’aveugle ----------
+   L’organisateur crée une session et ses bouteilles numérotées (identité complète, cachée aux participants).
+   Chaque participant déguste les bouteilles à l’aveugle et donne ses pronostics, voit ceux des autres
+   et propose le thème commun. À la fin, l’organisateur clôt la session : pronostics et réalité sont
+   comparés et le vainqueur est désigné. Tout passe par le carnet partagé (code de cave). */
+var ORG_HASH = "51c43dbfb9381bbb4da4496f9776b3a3b6d3eb72feebdfe4fddfb28a36aa7cdd";
+function items(kind){ return Object.keys(S.t).map(function(k){ return S.t[k]; }).filter(function(x){ return !x.deleted && (x.kind || "tasting") === kind; }); }
+function sessions(){ return items("session").sort(function(a, b){ return (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0); }); }
+function sBottles(sid){ return items("sbottle").filter(function(b){ return b.sessionId === sid; }).sort(function(a, b){ return a.n - b.n; }); }
+function sEntries(sid){ return list().filter(function(d){ return d.sessionId === sid; }); }
+function sThemes(sid){ return items("theme").filter(function(x){ return x.sessionId === sid; }); }
+function same(a, b){ return norm(trim(a)) === norm(trim(b)); }
+function myEntry(sid, n){ return sEntries(sid).filter(function(d){ return d.bottleN === n && same(d.author, S.me); })[0] || null; }
+function players(sid){
+  var seen = {};
+  sEntries(sid).concat(sThemes(sid)).forEach(function(x){ if (trim(x.author)) seen[norm(trim(x.author))] = trim(x.author); });
+  return Object.keys(seen).map(function(k){ return seen[k]; }).sort();
+}
+function putItem(x){ x.updatedAt = Date.now(); x.createdAt = x.createdAt || Date.now(); put(x); }
+
+/* Correspondance tolérante : accents, majuscules, fautes de frappe (bigrammes de Dice) */
+function bigrams(t){ var out = []; for (var i = 0; i < t.length - 1; i++) out.push(t.slice(i, i + 2)); return out; }
+function dice(a, b){
+  if (a === b) return 1; var x = bigrams(a), y = bigrams(b); if (!x.length || !y.length) return 0;
+  var hit = 0, pool = y.slice(); x.forEach(function(g){ var k = pool.indexOf(g); if (k >= 0) { hit++; pool.splice(k, 1); } });
+  return 2 * hit / (x.length + y.length);
+}
+function clean(t){ return norm(t).replace(/\b(domaine|chateau|maison|famille|cave|clos|du|de|des|la|le|les|et|d|l)\b/g, " ").replace(/[^a-z0-9]+/g, " ").trim(); }
+function near(a, b){
+  a = clean(a); b = clean(b); if (!a || !b) return false;
+  return a === b || (a.length > 3 && b.indexOf(a) >= 0) || (b.length > 3 && a.indexOf(b) >= 0) || dice(a, b) >= 0.72;
+}
+var STOP = ["vins","vin","les","des","du","de","la","le","et","en","au","aux","dégustation","degustation","theme","thème"];
+function themeNear(g, real){
+  if (!trim(g) || !trim(real)) return false;
+  if (near(g, real)) return true;
+  var w = function(t){ return clean(t).split(" ").filter(function(x){ return x.length > 3 && STOP.indexOf(x) < 0; }); };
+  var a = w(g), b = w(real);
+  return a.some(function(x){ return b.some(function(y){ return near(x, y); }); });
+}
+/* Barème : 3 points par cépage trouvé (−1 par cépage faux, jamais en dessous de 0 sur la bouteille),
+   2 points pour la région, 3 pour le château, 5 pour le thème. */
+var PTS = {cep:3, cepBad:1, region:2, chateau:3, theme:5};
+function bottlePoints(entry, b){
+  var g = guessOf(entry), real = b.cepages || [], r = {cep:[], region:false, chateau:false, pts:0};
+  g.cepages.forEach(function(c){ var ok = real.some(function(x){ return near(c, x); }); r.cep.push([c, ok]); r.pts += ok ? PTS.cep : -PTS.cepBad; });
+  r.region = near(g.region, b.region) || near(g.region, b.appellation);
+  r.chateau = near(g.chateau, b.domName);
+  r.pts = Math.max(0, r.pts) + (r.region ? PTS.region : 0) + (r.chateau ? PTS.chateau : 0);
+  return r;
+}
+function results(s){
+  var bs = sBottles(s.id), score = {};
+  players(s.id).forEach(function(p){ score[norm(p)] = {name:p, pts:0, bottles:{}, theme:null}; });
+  sEntries(s.id).forEach(function(e){
+    var b = bs.filter(function(x){ return x.n === e.bottleN; })[0], k = norm(trim(e.author)); if (!b || !score[k]) return;
+    var r = bottlePoints(e, b); score[k].bottles[b.n] = r; score[k].pts += r.pts;
+  });
+  sThemes(s.id).forEach(function(t){ var k = norm(trim(t.author)); if (!score[k]) return; var ok = themeNear(t.theme, s.theme); score[k].theme = ok; if (ok) score[k].pts += PTS.theme; });
+  return Object.keys(score).map(function(k){ return score[k]; }).sort(function(a, b){ return b.pts - a.pts; });
+}
+
+/* Écrans */
+function bottleName(b){ return [b.domName, b.nom, b.millesime].filter(Boolean).join(" · ") || "Identité à compléter"; }
+function sessionsScreen(){
+  var h = top("Sessions", isOrg() ? "Mode organisateur" : "Dégustations à l’aveugle en groupe");
+  if (!S.code) h += '<p class="sync">Pour jouer à plusieurs, tout le monde doit utiliser le même code de cave (Réglages).</p>';
+  if (isOrg()) h += '<button class="btn pri block" type="button" data-a="snew" style="margin-bottom:var(--s-s)">Créer une session</button>';
+  var ss = sessions();
+  if (!ss.length) return h + '<p class="empty">Aucune session pour l’instant.'+(isOrg() ? '' : '<br>L’organisateur la crée, elle apparaîtra ici.')+'</p>';
+  h += '<div class="list">'+ss.map(function(s){
+    var n = sBottles(s.id).length, p = players(s.id).length;
+    return '<button class="card" type="button" data-a="sopen" data-id="'+esc(s.id)+'"><span class="th sess"><b>'+n+'</b></span><span class="ct"><b>'+esc(s.name || "Session")+'</b>'+
+      '<small>'+esc(fdate(s.date))+' · '+n+' bouteille'+(n > 1 ? 's' : '')+' · '+p+' participant'+(p > 1 ? 's' : '')+'</small></span>'+
+      '<span class="state '+(s.closed ? 'done' : 'live')+'">'+(s.closed ? 'Terminée' : 'En cours')+'</span></button>';
+  }).join("")+'</div>';
+  return h;
+}
+function sessionScreen(){
+  var s = S.t[V.sid]; if (!s || s.deleted) { V.screen = "sessions"; return sessionsScreen(); }
+  var bs = sBottles(s.id), h = top(s.name || "Session", fdate(s.date)+' · '+(s.closed ? 'terminée' : 'en cours'), true);
+  if (isOrg()) h += '<div class="row" style="margin-bottom:var(--s-s)"><button class="btn" type="button" data-a="sedit">Préparer les bouteilles</button>'+
+    (s.closed ? '<button class="btn" type="button" data-a="sreopen">Rouvrir</button>' : '<button class="btn pri" type="button" data-a="sclose">Déclarer la fin</button>')+'</div>';
+  if (s.closed) h += resultsBlock(s);
+  if (!bs.length) h += '<p class="empty">L’organisateur n’a pas encore ajouté de bouteilles.</p>';
+  else {
+    h += '<span class="lbl">'+(s.closed ? 'Les bouteilles dévoilées' : 'Les bouteilles · touche pour déguster')+'</span><div class="tiles">'+bs.map(function(b){
+      var me = myEntry(s.id, b.n), others = sEntries(s.id).filter(function(e){ return e.bottleN === b.n; }).length, ph = b.photoData || b.photo;
+      return '<button class="tile'+(me ? ' done' : '')+'" type="button" data-a="stile" data-n="'+b.n+'">'+
+        (s.closed && ph ? '<img src="'+esc(ph)+'" alt="" onerror="this.remove()">' : '')+'<span class="tn">'+b.n+'</span>'+
+        '<span class="tt2">'+(s.closed ? esc(bottleName(b)) : 'Bouteille '+b.n)+'</span>'+
+        '<span class="ts">'+[me ? 'Ta note : '+(me.score ? fmt(me.score)+'/20' : '–') : s.closed ? '' : 'À déguster', others ? others+' avis' : ''].filter(Boolean).join(' · ')+'</span></button>';
+    }).join("")+'</div>';
+  }
+  /* Thème commun */
+  var mine = sThemes(s.id).filter(function(t){ return same(t.author, S.me); })[0];
+  h += '<div class="sec"><span class="lbl">Le thème commun</span>'+(s.closed && s.theme ? '<p class="quote" style="margin-bottom:var(--s-xs)">C’était : « '+esc(s.theme)+' »</p>' : '')+
+    (!s.closed ? '<form id="thf" class="theme-f"><input class="inp" name="theme" value="'+esc(mine ? mine.theme : "")+'" placeholder="Ex. Rieslings d’Alsace, vieux millésimes…" aria-label="Ton idée du thème"><button class="btn pri" type="submit">'+(mine ? 'Modifier' : 'Proposer')+'</button></form>' : '')+
+    themeList(s)+'</div>';
+  /* Pronostics de la tablée */
+  var ent = sEntries(s.id);
+  if (ent.length) h += '<div class="sec"><span class="lbl">Les pronostics de la tablée</span>'+bs.map(function(b){
+    var es = ent.filter(function(e){ return e.bottleN === b.n; }); if (!es.length) return '';
+    return '<p class="day">Bouteille '+b.n+(s.closed ? ' · '+esc(bottleName(b)) : '')+'</p><div class="guesses">'+es.map(function(e){ var g = guessOf(e);
+      return '<div class="guess"><span class="gh"><b>'+esc(e.author || "–")+'</b><em>'+(e.score ? fmt(e.score)+'<small>/20</small>' : '')+'</em></span>'+
+        '<span class="gl"><i>Cépages</i>'+esc(g.cepages.join(", ") || "–")+'</span><span class="gl"><i>Région</i>'+esc(g.region || "–")+'</span><span class="gl"><i>Château</i>'+esc(g.chateau || "–")+'</span></div>'; }).join("")+'</div>';
+  }).join("")+'</div>';
+  return h;
+}
+function themeList(s){
+  var ts = sThemes(s.id); if (!ts.length) return '<p class="muted" style="font-size:var(--step--1)">Personne n’a encore proposé de thème.</p>';
+  return '<ul class="themes">'+ts.map(function(t){ var ok = s.closed && themeNear(t.theme, s.theme);
+    return '<li><b>'+esc(t.author)+'</b><span>'+esc(t.theme)+(ok ? ' <em class="hit">+'+PTS.theme+'</em>' : '')+'</span></li>'; }).join("")+'</ul>';
+}
+function resultsBlock(s){
+  var rs = results(s), bs = sBottles(s.id); if (!rs.length) return '<p class="empty">Session terminée, sans participant.</p>';
+  var h = '<div class="sec podium"><span class="lbl">Résultats</span>'+(rs[0].pts > 0 ? '<p class="winner"><span aria-hidden="true">🏆</span> '+esc(rs[0].name)+' l’emporte avec '+rs[0].pts+' point'+(rs[0].pts > 1 ? 's' : '')+'</p>' : '')+
+    '<ol class="rank">'+rs.map(function(r, k){ return '<li><span>'+(k < 3 ? ["🥇","🥈","🥉"][k]+' ' : (k + 1)+'. ')+esc(r.name)+'</span><b>'+r.pts+' pt'+(r.pts > 1 ? 's' : '')+'</b></li>'; }).join("")+'</ol>'+
+    '<details class="adv" style="margin:var(--s-s) 0 0"><summary>Le détail des points</summary>'+bs.map(function(b){
+      var line = rs.filter(function(r){ return r.bottles[b.n]; }).map(function(r){ var x = r.bottles[b.n];
+        return '<li><b>'+esc(r.name)+'</b><span>'+x.cep.map(function(c){ return '<i class="'+(c[1] ? 'ok' : 'ko')+'">'+esc(c[0])+'</i>'; }).join(" ")+
+          (x.region ? ' <i class="ok">région</i>' : '')+(x.chateau ? ' <i class="ok">château</i>' : '')+'</span><em>'+x.pts+'</em></li>'; }).join("");
+      return '<p class="day">Bouteille '+b.n+'</p><p class="muted" style="font-size:var(--step--1);margin-bottom:var(--s-2xs)">'+esc(bottleName(b))+((b.cepages || []).length ? ' · '+esc(b.cepages.join(", ")) : '')+(b.region ? ' · '+esc(b.region) : '')+'</p>'+(line ? '<ul class="pts">'+line+'</ul>' : '');
+    }).join("")+'<p class="muted" style="font-size:var(--step--2);margin-top:var(--s-s)">Barème : '+PTS.cep+' pts par cépage trouvé (−'+PTS.cepBad+' par cépage faux), '+PTS.region+' pour la région, '+PTS.chateau+' pour le château, '+PTS.theme+' pour le thème.</p></details></div>';
+  return h;
+}
+function sEditScreen(){
+  var s = S.t[V.sid], bs = sBottles(s.id);
+  var h = top("Préparer la session", "Visible seulement par l’organisateur", true);
+  h += '<form id="sef" class="sec"><div class="grid">'+field("Nom de la session", input("name", s.name, 'type="text" required placeholder="Ex. Soirée Riesling"'), true)+
+    field("Date", input("date", s.date || today(), 'type="date"'))+
+    field("Thème réel (caché jusqu’à la fin)", input("theme", s.theme, 'type="text" placeholder="Ex. Grands crus d’Alsace"'), true)+
+    '</div><div class="row" style="margin-top:var(--s-s)"><button class="btn pri" type="submit">Enregistrer</button></div></form>';
+  h += '<span class="lbl">Les bouteilles</span><div class="list">'+bs.map(function(b){ var ph = b.photoData || b.photo;
+    return '<button class="card" type="button" data-a="sbedit" data-id="'+esc(b.id)+'"><span class="th sess">'+(ph ? '<img src="'+esc(ph)+'" alt="" onerror="this.remove()">' : '<b>'+b.n+'</b>')+'</span>'+
+      '<span class="ct"><b>Bouteille '+b.n+'</b><small>'+esc(bottleName(b))+'</small><small>'+esc([(b.cepages || []).join(", "), b.region].filter(Boolean).join(" · "))+'</small></span></button>'; }).join("")+'</div>';
+  h += '<button class="btn block" type="button" data-a="sbadd" style="margin-top:var(--s-s)">Ajouter la bouteille '+(bs.length ? bs[bs.length - 1].n + 1 : 1)+'</button>';
+  return h;
+}
+function sBottleScreen(){
+  var b = V.sb, vin = b.type !== "biere" && b.type !== "spiritueux";
+  var h = top("Bouteille "+b.n, "Identité réelle, cachée aux participants", true);
+  h += '<form id="sbf" data-step="sbottle" autocomplete="off"><div class="sec">'+kindPicker(b, false)+'</div>'+photoRow(b)+
+    '<div class="sec"><div class="grid">'+
+    field(vin ? "Château ou domaine" : "Producteur", input("domName", b.domName, 'type="text" list="dlDom"'), true)+
+    field("Cuvée", input("nom", b.nom, 'type="text"'))+
+    field("Millésime", input("millesime", b.millesime, 'type="number" inputmode="numeric" min="1900" max="2100"'))+
+    field("Région", input("region", b.region, 'type="text" list="dlReg"'))+
+    field("Appellation", input("appellation", b.appellation, 'type="text"'))+
+    '<input type="hidden" name="cep_present" value="1">'+group("Cépages", pills("cepages", T_GRAPES.concat((b.cepages || []).filter(function(c){ return T_GRAPES.indexOf(c) < 0; })), b.cepages, true))+
+    field("Autre cépage", input("autreCep", "", 'type="text" placeholder="Séparer par des virgules"'), true)+
+    field("Prix (€)", input("prix", b.prix, 'type="number" inputmode="decimal" step="0.5" min="0"'))+
+    field("Notes", text("infos", b.infos, "Pour l’organisateur"), true)+
+    '</div>'+datalist("dlDom", known("domName"))+datalist("dlReg", known("region").concat(T_REGIONS))+'</div>'+
+    '<div class="bar-nav">'+(b.id ? '<button class="btn" type="button" data-a="sbdel">Retirer</button>' : '<span></span>')+'<button class="btn pri" type="submit">Enregistrer la bouteille</button></div></form>';
+  return h;
+}
+SCREENS.sessions = sessionsScreen; SCREENS.session = sessionScreen; SCREENS.sedit = sEditScreen; SCREENS.sbottle = sBottleScreen;
+
+function isOrg(){ return !!S.org; }
+function sha(t){ return crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function(b){ return Array.prototype.map.call(new Uint8Array(b), function(x){ return (x < 16 ? "0" : "") + x.toString(16); }).join(""); }); }
+function sbCollect(){
+  var f = $("sbf"); if (!f) return; var fd = new FormData(f), b = V.sb;
+  ["domName","nom","millesime","region","appellation","prix","infos"].forEach(function(k){ if (fd.has(k)) b[k] = trim(fd.get(k)); });
+  if (fd.has("cep_present")) b.cepages = fd.getAll("cepages");
+}
+function goSession(sid){ V.sid = sid; V.back = [{screen:"sessions"}]; V.screen = "session"; render(); window.scrollTo(0, 0); }
+
+document.addEventListener("click", function(e){
+  var b = e.target.closest("[data-a]"); if (!b) return;
+  var a = b.getAttribute("data-a");
+  if (a === "snew") { var s = {id:uid(), kind:"session", name:"", date:today(), theme:"", closed:false, owner:S.me}; putItem(s); V.sid = s.id; V.back = [{screen:"sessions"}]; V.screen = "sedit"; render(); window.scrollTo(0, 0); }
+  else if (a === "sopen") goSession(b.getAttribute("data-id"));
+  else if (a === "sedit") go("sedit");
+  else if (a === "sbadd") { var bs = sBottles(V.sid); V.sb = {kind:"sbottle", sessionId:V.sid, n:bs.length ? bs[bs.length - 1].n + 1 : 1, type:"vin", cepages:[]}; V.photo = null; go("sbottle", true); }
+  else if (a === "sbedit") { V.sb = JSON.parse(JSON.stringify(S.t[b.getAttribute("data-id")])); V.photo = null; go("sbottle", true); }
+  else if (a === "sbdel") {
+    if (!b.getAttribute("data-sure")) { b.setAttribute("data-sure", "1"); b.textContent = "Confirmer"; return; }
+    var x = JSON.parse(JSON.stringify(S.t[V.sb.id])); x.deleted = true; delete x.photoData; putItem(x); back(); toast("Bouteille retirée");
+  }
+  else if (a === "sclose") {
+    if (!b.getAttribute("data-sure")) { b.setAttribute("data-sure", "1"); b.textContent = "Confirmer la fin"; return; }
+    var s1 = JSON.parse(JSON.stringify(S.t[V.sid])); s1.closed = true; s1.closedAt = Date.now(); putItem(s1); render(); window.scrollTo(0, 0); toast("Session terminée : voici les résultats");
+  }
+  else if (a === "sreopen") { var s2 = JSON.parse(JSON.stringify(S.t[V.sid])); s2.closed = false; putItem(s2); render(); }
+  else if (a === "stile") {
+    var s3 = S.t[V.sid], n = parseInt(b.getAttribute("data-n"), 10), me = myEntry(V.sid, n);
+    if (me) { V.id = me.id; V.back = [{screen:"session"}]; V.screen = "view"; render(); window.scrollTo(0, 0); return; }
+    if (s3.closed) { toast("Session terminée"); return; }
+    if (!S.me) { toast("Indique ton prénom dans Réglages"); return; }
+    var d = newDraft("aveugle"); d.sessionId = V.sid; d.bottleN = n; d.sessionName = s3.name; startWiz(d); V.back = [{screen:"session"}];
+  }
+  else if (a === "orgoff") { S.org = false; save(); render(); toast("Mode organisateur désactivé"); }
+});
+document.addEventListener("submit", function(e){
+  var f = e.target, fd = new FormData(f);
+  if (f.id === "sef") {
+    e.preventDefault();
+    var s = JSON.parse(JSON.stringify(S.t[V.sid])); s.name = trim(fd.get("name")); s.date = trim(fd.get("date")) || s.date; s.theme = trim(fd.get("theme"));
+    putItem(s); toast("Session enregistrée"); render();
+  }
+  else if (f.id === "sbf") {
+    e.preventDefault();
+    var b = V.sb;
+    ["domName","nom","millesime","region","appellation","prix","infos"].forEach(function(k){ b[k] = trim(fd.get(k)); });
+    if (fd.has("famille")) b.famille = trim(fd.get("famille")) || b.famille;
+    b.cepages = fd.getAll("cepages"); trim(fd.get("autreCep")).split(/\s*[,;+]\s*/).forEach(function(c){ if (c && b.cepages.indexOf(c) < 0) b.cepages.push(c); });
+    if (V.photo) { b.photoData = V.photo; V.photo = null; }
+    b.id = b.id || uid(); putItem(JSON.parse(JSON.stringify(b))); back(); toast("Bouteille "+b.n+" enregistrée");
+  }
+  else if (f.id === "thf") {
+    e.preventDefault();
+    if (!S.me) { toast("Indique ton prénom dans Réglages"); return; }
+    var id = "th-" + V.sid + "-" + norm(S.me).replace(/[^a-z0-9]+/g, "-");
+    putItem({id:id, kind:"theme", sessionId:V.sid, author:S.me, theme:trim(fd.get("theme")), createdAt:(S.t[id] || {}).createdAt});
+    render(); toast("Thème proposé");
+  }
+  else if (f.id === "orgf") {
+    e.preventDefault();
+    if (!window.crypto || !crypto.subtle) { toast("Ouvre l’appli en https"); return; }
+    sha(trim(fd.get("pass"))).then(function(h){ if (h === ORG_HASH) { S.org = true; save(); render(); toast("Mode organisateur activé"); } else toast("Mot de passe incorrect"); });
+  }
+}, true);
+/* Pendant une session, les avis des autres arrivent vite */
+setInterval(function(){ if (V.screen === "session" && document.visibilityState === "visible") sync(); }, 15000);
+
 /* ---------- Événements ---------- */
 document.addEventListener("click", function(e){
   var g = e.target.closest("[data-go]");
@@ -656,6 +895,7 @@ document.addEventListener("click", function(e){
   else if (a === "type") { V.type = b.getAttribute("data-v"); render(); }
   else if (a === "sort") { V.sort = V.sort === "date" ? "score" : "date"; render(); }
   else if (a === "sync") sync();
+  else if (a === "kind" && V.screen === "sbottle") { sbCollect(); var tk = b.getAttribute("data-v"); if (V.sb.type !== tk) { V.sb.type = tk; V.sb.famille = ""; } render(); }
   else if (a === "kind") { collect(); var t = b.getAttribute("data-v"); if (V.d.type !== t) { V.d.type = t; V.d.famille = ""; if (V.d.mode !== "aveugle") V.d.couleur = ""; }   /* à l’aveugle, la couleur vue garde sa valeur */ S.draft = V.d; save(); render(); }
   else if (a === "next") goStep(V.step + 1);
   else if (a === "prev") goStep(V.step - 1);
