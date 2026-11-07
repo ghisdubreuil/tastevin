@@ -18,10 +18,11 @@ On peut l’ajouter à l’écran d’accueil. Elle marche hors ligne.
     qui prend la couleur choisie sur un dégradé propre à la boisson ; le nez et la bouche,
     avec 14 familles d’arômes, leurs sous-arômes, une recherche et une intensité de 0 à 10 ;
     la structure ; la note sur 20 et le commentaire.
-  - **À l’aveugle** : l’œil, le nez, la bouche, la structure et la note, sans rien savoir
-    du vin. Vient ensuite un pronostic (type, cépage, millésime, région), puis la
-    révélation de l’étiquette, qu’on peut aussi faire plus tard depuis la fiche. La fiche
-    compare le pronostic à la réalité.
+  - **À l’aveugle** : l’œil, le nez, la bouche, la structure et la note, sans voir
+    l’étiquette, puis les pronostics : cépage ou cépages, région, château. Il n’y a pas de
+    bonne réponse dans l’appli : les pronostics de chacun sont rangés par date dans le
+    palmarès, pour les comparer ensemble lors de la session.
+  - Dans tous les modes, la note reste vierge tant qu’on n’a pas noté.
 - **Fiche** : tout le détail, avec « Modifier » et « Re-déguster » (une nouvelle note du même vin).
 - **Palmarès** : top 10, producteurs et arômes les plus cités.
 - **Réglages** : prénom, code de cave partagée, export JSON ou CSV, import (y compris

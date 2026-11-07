@@ -101,8 +101,8 @@ var MODES = {
     steps:[["boisson","Boisson"],["details","Détails"],["oeil","L’œil"],["nez","Le nez"],["bouche","La bouche"],["structure","Structure"],["note","Note"]]},
   rapide:{label:"Fiche rapide", short:"Rapide", desc:"Quand le temps manque : la bouteille, une photo, une note et tes remarques. Un seul écran.",
     steps:[["rapide","Fiche rapide"]]},
-  aveugle:{label:"À l’aveugle", short:"Aveugle", desc:"On décrit et on note sans rien savoir du vin, puis on tente un pronostic avant de révéler l’étiquette.",
-    steps:[["oeil","L’œil"],["nez","Le nez"],["bouche","La bouche"],["structure","Structure"],["note","Note"],["prono","Pronostic"],["reveal","Révélation"]]}
+  aveugle:{label:"À l’aveugle", short:"Aveugle", desc:"Sans voir l’étiquette : on décrit, on note, puis on devine le cépage, la région et le château. On compare ensuite tous ensemble.",
+    steps:[["oeil","L’œil"],["nez","Le nez"],["bouche","La bouche"],["structure","Structure"],["note","Note"],["prono","Mes pronostics"]]}
 };
 function stepsOf(d){ return (MODES[d.mode] || MODES.normal).steps; }
 function sid(){ return V.d ? stepsOf(V.d)[V.step][0] : ""; }
@@ -121,12 +121,15 @@ var VINE = '<svg class="vine" viewBox="0 0 260 120" aria-hidden="true" fill="non
   '<path d="M186 20c-4 6-2 12 4 16 M190 36c8 2 12-2 12-8" opacity=".7"/><path d="M60 74c4 6 10 8 16 6 M66 78c-2 6 0 10 6 12" opacity=".7"/>'+
   '<g fill="currentColor" stroke="none" opacity=".85"><circle cx="150" cy="56" r="5"/><circle cx="161" cy="55" r="5"/><circle cx="144" cy="65" r="5"/><circle cx="155" cy="65" r="5"/><circle cx="166" cy="64" r="5"/><circle cx="150" cy="74" r="5"/><circle cx="161" cy="74" r="5"/><circle cx="155" cy="83" r="5"/></g>'+
   '<path d="M156 50c0-6 2-10 6-14"/></svg>';
+var T_REGIONS = ["Alsace","Bourgogne","Beaujolais","Bordeaux","Champagne","Jura","Savoie","Loire","Rhône nord","Rhône sud","Provence","Languedoc","Roussillon","Sud-Ouest","Corse","Moselle","Rheingau","Pfalz","Wachau","Piémont","Toscane","Vénétie","Rioja","Ribera del Duero","Priorat","Douro","Napa Valley","Oregon","Mendoza","Barossa","Marlborough","Afrique du Sud"];
 var T_GRAPES = ["Chardonnay","Pinot noir","Riesling","Gewurztraminer","Pinot gris","Sauvignon","Chenin","Syrah","Grenache","Mourvèdre","Merlot","Cabernet sauvignon","Cabernet franc","Gamay","Malbec","Viognier","Sylvaner","Muscat","Savagnin","Assemblage"];
 
 function col(s){ return s == null ? "var(--muted)" : s >= 16 ? "var(--good)" : s >= 13 ? "var(--accent)" : s >= 10 ? "var(--warn)" : "var(--muted)"; }
 function fmt(s){ return s == null || s === "" ? "–" : (Math.round(s * 10) / 10).toString().replace(".", ","); }
 function lbl(s){ return s < 8 ? "À oublier" : s < 11 ? "Bof" : s < 13 ? "Correct" : s < 15 ? "Bon" : s < 17 ? "Très bon" : s < 19 ? "Superbe" : "Légendaire"; }
-function title(d){ return d.nom || (d.mode === "aveugle" && !d.type && !d.domName ? "Vin mystère" : d.famille || (T_TYPES[d.type] || {}).label || "Dégustation"); }
+function guessOf(d){ var g = d.guess || {}; return {cepages:g.cepages || (g.cepage ? [g.cepage] : []), region:g.region || "", chateau:g.chateau || ""}; }
+function guessText(d){ var g = guessOf(d); return [g.cepages.join(", "), g.region, g.chateau].filter(Boolean).join(" · "); }
+function title(d){ return d.nom || (d.mode === "aveugle" && !d.domName ? "Vin à l’aveugle" : d.famille || (T_TYPES[d.type] || {}).label || "Dégustation"); }
 var T_BLIND = [["Vert pâle","#E6EAB2"],["Jaune paille","#E8CF6E"],["Doré","#DDB84A"],["Ambré","#B57B2C"],["Pêche","#F4B092"],["Saumon","#EE9779"],["Rubis","#9B1B30"],["Grenat","#7A1F2B"],["Tuilé","#8F3E2A"],["Brun","#5A3420"]];
 function palette(d){ return !d.type ? T_BLIND : T_COLORS[d.type === "vin" ? "vin:" + d.famille : d.type] || T_COLORS["vin:Blanc"]; }
 function hexOf(d){ return d.couleur ? d.couleur.split("|")[1] : (((T_TYPES[d.type] || {}).fams || []).filter(function(f){ return f[0] === d.famille; })[0] || [])[1] || "var(--panel-2)"; }
@@ -165,9 +168,9 @@ function card(d, rank){
   var ph = d.photoData || d.photo;
   return '<button class="card" type="button" data-a="view" data-id="'+esc(d.id)+'"><span class="rk">'+(rank ? (rank <= 3 ? ["🥇","🥈","🥉"][rank - 1] : rank) : '')+'</span>'+
     '<span class="th" style="background:'+hexOf(d)+'">'+(ph ? '<img src="'+esc(ph)+'" alt="" loading="lazy" onerror="this.remove()">' : ICON[d.type] || ICON.vin)+'</span>'+
-    '<span class="ct"><b>'+esc(title(d))+(d.millesime ? ' '+esc(d.millesime) : '')+'</b><small>'+esc([d.domName, d.appellation || d.region].filter(Boolean).join(" · "))+'</small>'+
+    '<span class="ct"><b>'+esc(title(d))+(d.millesime ? ' '+esc(d.millesime) : '')+'</b><small>'+esc(d.mode === "aveugle" && !d.domName ? (guessText(d) ? 'Pronostic : '+guessText(d) : 'Sans pronostic') : [d.domName, d.appellation || d.region].filter(Boolean).join(" · "))+'</small>'+
     '<small>'+(d.mode && d.mode !== "normal" ? '<em class="tag">'+MODES[d.mode].short+'</em> ' : '')+esc([(T_TYPES[d.type] || {}).label, d.famille, d.author, fdate(d.date)].filter(Boolean).join(" · "))+'</small></span>'+
-    '<span class="sc" style="--s:'+col(d.score)+'">'+fmt(d.score)+'<small>/20</small></span></button>';
+    '<span class="sc" style="--s:'+col(d.score)+'">'+(d.score ? fmt(d.score)+'<small>/20</small>' : '<small>non noté</small>')+'</span></button>';
 }
 function syncLine(){
   if (!API) return '<p class="sync">Carnet sur ce téléphone.</p>';
@@ -184,9 +187,9 @@ function home(){
   var rows = all.filter(function(d){
     if (V.type !== "all" && d.type !== V.type) return false;
     if (!q) return true;
-    return norm([d.nom, d.domName, d.famille, d.appellation, d.region, d.pays, d.parcelle, d.millesime, d.author, d.txt, (d.cepages || []).join(" ")].join(" ")).indexOf(q) >= 0;
+    return norm([d.nom, d.domName, d.famille, d.appellation, d.region, d.pays, d.parcelle, d.millesime, d.author, d.txt, (d.cepages || []).join(" "), guessText(d)].join(" ")).indexOf(q) >= 0;
   });
-  rows.sort(V.sort === "score" ? function(a, b){ return (b.score || 0) - (a.score || 0); } : function(a, b){ return (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0); });
+  rows.sort(V.sort === "score" ? function(a, b){ return (b.score || -1) - (a.score || -1); } : function(a, b){ return (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0); });
   var h = '<header class="top"><div class="tt"><span class="brand">'+ICON.leaf+'<span>Taste<i>vin</i></span></span><small>'+all.length+' dégustation'+(all.length > 1 ? 's' : '')+' au carnet</small></div></header>';
   h += '<span id="syncLine">'+syncLine()+'</span>';
   if (S.draft) h += '<button class="btn block" type="button" data-a="resume" style="margin-bottom:var(--s-s)">Reprendre la saisie en cours</button>';
@@ -212,17 +215,21 @@ function collect(){
   var d = V.d, fd = new FormData(f), step = f.getAttribute("data-step");
   function g(k){ return trim(fd.get(k)); }
   if (fd.has("famille")) d.famille = g("famille") || d.famille;
-  if (step === "details" || step === "rapide" || step === "reveal") {
+  if (step === "details" || step === "rapide") {
     ["domName","nom","millesime","pays","region","appellation","parcelle","degre","prix","elevage","achat","infos"].forEach(function(k){ if (fd.has(k)) d[k] = g(k); });
     if (fd.has("autreAnnee") && g("autreAnnee")) d.millesime = g("autreAnnee");
     if (fd.has("cep_present")) d.cepages = fd.getAll("cepages");
     if (V.photo) { d.photoData = V.photo; V.photo = null; }
   }
-  if (step === "rapide") { d.score = parseFloat(fd.get("score")) || d.score; d.author = g("author"); d.date = g("date") || d.date; d.txt = g("txt"); }
-  else if (step === "prono") d.guess = {type:g("g_type"), cepage:g("g_cepage"), millesime:g("g_millesime"), region:g("g_region"), txt:g("g_txt")};
+  if (step === "rapide") { d.score = parseFloat(fd.get("score")) || null; d.author = g("author"); d.date = g("date") || d.date; d.txt = g("txt"); }
+  else if (step === "prono") {
+    var cs = fd.getAll("g_cepages"), extra = g("g_autre");
+    if (extra) extra.split(/\s*[,;+]\s*/).forEach(function(c){ if (c && cs.indexOf(c) < 0) cs.push(c); });
+    d.guess = {cepages:cs, region:g("g_region"), chateau:g("g_chateau")};
+  }
   else if (step === "oeil") { d.couleur = g("couleur"); d.cpos = fd.get("cpos") ? parseInt(fd.get("cpos"), 10) : null; d.intensite = parseInt(fd.get("intensite"), 10) || 0; d.aspect = fd.getAll("aspect"); }
   else if (step === "structure") { var st = {}; T_STRUCT.forEach(function(s){ if (fd.has("st_" + s[0])) st[s[0]] = parseInt(fd.get("st_" + s[0]), 10) || 0; }); d.structure = st; }
-  else if (step === "note") { d.score = parseFloat(fd.get("score")) || d.score; d.author = g("author"); d.date = g("date") || d.date; d.lieu = g("lieu"); d.rachat = g("rachat"); d.accords = g("accords"); d.txt = g("txt"); }
+  else if (step === "note") { d.score = parseFloat(fd.get("score")) || null; d.author = g("author"); d.date = g("date") || d.date; d.lieu = g("lieu"); d.rachat = g("rachat"); d.accords = g("accords"); d.txt = g("txt"); }
   S.draft = d; save();
 }
 function hexRgb(h){ var n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
@@ -250,8 +257,17 @@ function colorSet(t, touched){
   if (touched) { $("cv").value = pal[k][0] + "|" + hex; $("cp").value = Math.round(t * 1000); $("cn").textContent = pal[k][0]; }
   Array.prototype.forEach.call(document.querySelectorAll(".sw"), function(b, j){ b.setAttribute("aria-pressed", touched && j === k ? "true" : "false"); });
 }
-function scoreHTML(s){ return '<button type="button" class="sb" data-a="score" data-d="-0.5" aria-label="Baisser la note">−</button><span class="sv"><b>'+fmt(s)+'</b><small>/20</small><span>'+lbl(s)+'</span></span><button type="button" class="sb" data-a="score" data-d="0.5" aria-label="Monter la note">+</button>'; }
-function scoreSet(v){ v = Math.max(1, Math.min(20, v)); var o = $("so"), r = $("sr"); if (!o || !r) return; r.value = v; o.style.setProperty("--s", col(v)); o.innerHTML = scoreHTML(v); }
+/* Note sur 20 : vierge tant qu’on n’a pas touché au curseur ou aux boutons */
+function scoreHTML(s){
+  var has = s != null && s !== "";
+  return '<button type="button" class="sb" data-a="score" data-d="-0.5" aria-label="Baisser la note">−</button><span class="sv"><b>'+(has ? fmt(s) : '–')+'</b><small>/20</small><span>'+(has ? lbl(s) : 'Pas encore noté')+'</span></span>'+
+    '<button type="button" class="sb" data-a="score" data-d="0.5" aria-label="Monter la note">+</button>';
+}
+function scoreSet(v){
+  var o = $("so"), r = $("sr"), h = $("srv"); if (!o || !r) return;
+  if (v == null) { h.value = ""; r.value = 10; r.classList.add("unset"); o.style.setProperty("--s", "var(--muted)"); o.innerHTML = scoreHTML(null); $("srx").hidden = true; return; }
+  v = Math.max(1, Math.min(20, v)); r.value = v; h.value = v; r.classList.remove("unset"); o.style.setProperty("--s", col(v)); o.innerHTML = scoreHTML(v); $("srx").hidden = false;
+}
 
 function kindPicker(d, auto){
   var h = '<div class="types">'+Object.keys(T_TYPES).map(function(k){ var t = T_TYPES[k];
@@ -274,9 +290,11 @@ function identity(d){
     '</div>'+datalist("dlDom", known("domName"))+datalist("dlNom", known("nom"))+'</div>';
 }
 function scoreBlock(d){
-  var sc = d.score || 14;
-  return '<div class="score" id="so" style="--s:'+col(sc)+'">'+scoreHTML(sc)+'</div>'+
-    '<input class="big-range" id="sr" name="score" type="range" min="1" max="20" step="0.5" value="'+sc+'" aria-label="Note sur 20">'+
+  var sc = d.score || null;
+  return '<div class="score" id="so" style="--s:'+(sc ? col(sc) : 'var(--muted)')+'">'+scoreHTML(sc)+'</div>'+
+    '<input class="big-range'+(sc ? '' : ' unset')+'" id="sr" type="range" min="1" max="20" step="0.5" value="'+(sc || 10)+'" aria-label="Note sur 20">'+
+    '<input type="hidden" name="score" id="srv" value="'+(sc || "")+'">'+
+    '<p class="sx"><button type="button" class="link" id="srx" data-a="noscore"'+(sc ? '' : ' hidden')+'>Effacer la note</button></p>'+
     '<div class="scale20" aria-hidden="true"><span>1</span><span>5</span><span>10</span><span>15</span><span>20</span></div>';
 }
 function step(id){
@@ -291,22 +309,13 @@ function step(id){
     return h;
   }
   if (id === "prono") {
-    var gs = d.guess || {};
-    h += '<p class="lead">Avant de voir l’étiquette : qu’est-ce que tu crois boire ?</p><div class="sec"><div class="grid">'+
-      group("Type", pills("g_type", ["Vin","Bière","Spiritueux"], gs.type))+
-      field("Cépage", input("g_cepage", gs.cepage, 'type="text" list="dlCep" placeholder="Ex. Riesling"'))+
-      field("Millésime", input("g_millesime", gs.millesime, 'type="number" inputmode="numeric" min="1900" max="2100" placeholder="Ex. 2019"'))+
-      field("Région", input("g_region", gs.region, 'type="text" list="dlReg" placeholder="Ex. Alsace"'), true)+
-      field("Mon intuition", text("g_txt", gs.txt, "Un grand cru ? Un vin nature ? Un vieux millésime ?"), true)+
-      '</div>'+datalist("dlCep", T_GRAPES)+datalist("dlReg", known("region"))+'</div>';
-    return h;
-  }
-  if (id === "reveal") {
-    h += '<p class="lead">L’étiquette est dévoilée. Tout est facultatif : tu pourras compléter plus tard depuis la fiche.</p>';
-    h += '<div class="sec">'+kindPicker(d, false)+'</div>'+photoRow(d)+identity(d)+
-      '<div class="sec"><div class="grid">'+field("Région", input("region", d.region, 'type="text" list="dlReg2"'))+field("Appellation", input("appellation", d.appellation, 'type="text"'))+
-      '<input type="hidden" name="cep_present" value="1">'+group("Cépages", pills("cepages", T_GRAPES.concat((d.cepages || []).filter(function(c){ return T_GRAPES.indexOf(c) < 0; })), d.cepages, true))+
-      '</div>'+datalist("dlReg2", known("region"))+'</div>';
+    var gs = guessOf(d);
+    h += '<p class="lead">Pas de bonne ou de mauvaise réponse : note ce que tu crois, vous comparerez ensemble.</p>';
+    h += '<div class="sec"><span class="lbl">Cépage ou cépages</span>'+pills("g_cepages", T_GRAPES.concat(gs.cepages.filter(function(c){ return T_GRAPES.indexOf(c) < 0; })), gs.cepages, true)+
+      '<div class="grid" style="margin-top:var(--s-s)">'+field("Autre cépage", input("g_autre", "", 'type="text" list="dlCep" placeholder="Ex. Petit manseng"'))+'</div>'+datalist("dlCep", T_GRAPES)+'</div>';
+    h += '<div class="sec"><div class="grid">'+field("Région", input("g_region", gs.region, 'type="text" list="dlReg" placeholder="Ex. Bourgogne"'))+
+      field("Château ou domaine", input("g_chateau", gs.chateau, 'type="text" list="dlDom" placeholder="Facultatif"'))+'</div>'+
+      datalist("dlReg", known("region").concat(T_REGIONS).filter(function(v, k, a){ return a.indexOf(v) === k; }))+datalist("dlDom", known("domName"))+'</div>';
     return h;
   }
   var i = ["boisson","details","oeil","nez","bouche","structure","note"].indexOf(id);
@@ -402,20 +411,17 @@ function view(){
   var ph = d.photoData || d.photo, c = d.couleur ? d.couleur.split("|") : null;
   var h = top(title(d) + (d.millesime ? " " + d.millesime : ""), [d.domName, (T_TYPES[d.type] || {}).label, d.famille].filter(Boolean).join(" · "), true);
   if (ph) h += '<div class="photo"><img src="'+esc(ph)+'" alt="Photo de la bouteille" onerror="this.parentNode.remove()"></div>';
-  h += '<div class="hero" style="--s:'+col(d.score)+'"><div><b class="big">'+fmt(d.score)+'<small>/20</small></b><br><span class="muted">'+(d.score ? esc(lbl(d.score)) : '')+(d.author ? ' · '+esc(d.author) : '')+(d.date ? ' · '+fdate(d.date) : '')+'</span></div>'+
+  h += '<div class="hero" style="--s:'+col(d.score)+'"><div><b class="big">'+(d.score ? fmt(d.score)+'<small>/20</small>' : '<small>Pas encore noté</small>')+'</b><br><span class="muted">'+(d.score ? esc(lbl(d.score)) : '')+(d.author ? ' · '+esc(d.author) : '')+(d.date ? ' · '+fdate(d.date) : '')+'</span></div>'+
     '<div class="row"><button class="btn" type="button" data-a="edit">Modifier</button><button class="btn" type="button" data-a="again" title="Nouvelle dégustation du même vin">Re-déguster</button></div></div>';
   var kv = [["Producteur", d.domName], ["Cuvée", d.nom], [d.type === "vin" ? "Millésime" : "Année", d.millesime], ["Origine", [d.appellation, d.region, d.pays].filter(Boolean).join(", ")], ["Parcelle", d.parcelle],
     ["Cépages", (d.cepages || []).join(", ")], ["Degré", d.degre ? d.degre + " %" : ""], ["Prix", d.prix ? String(d.prix).replace(".", ",") + " €" : ""], ["Élevage", d.elevage], ["Acheté / goûté", d.achat], ["Lieu", d.lieu], ["Infos", d.infos]];
   if (d.mode === "aveugle") {
-    var gs = d.guess || {}, real = {type:(T_TYPES[d.type] || {}).label, cepage:(d.cepages || []).join(", "), millesime:d.millesime, region:d.region};
-    var ok = function(a, b){ return a && b && (norm(b).indexOf(norm(a)) >= 0 || norm(a) === norm(b)); };
-    var rows = [["Type", gs.type, real.type], ["Cépage", gs.cepage, real.cepage], ["Millésime", gs.millesime, real.millesime], ["Région", gs.region, real.region]].filter(function(r){ return r[1] || r[2]; });
-    h += '<div class="sec"><span class="lbl">À l’aveugle · pronostic et réalité</span>'+(rows.length ? '<table class="prono"><thead><tr><th></th><th>Pronostic</th><th>Réalité</th></tr></thead><tbody>'+rows.map(function(r){
-      return '<tr><th>'+r[0]+'</th><td>'+esc(r[1] || "–")+'</td><td>'+esc(r[2] || "?")+(ok(r[1], r[2]) ? ' <span class="hit" aria-label="trouvé">✓</span>' : '')+'</td></tr>'; }).join("")+'</tbody></table>' : '')+
-      (gs.txt ? '<p class="quote">« '+esc(gs.txt)+' »</p>' : '')+
-      (!d.type ? '<button class="btn pri block" type="button" data-a="reveal">Révéler l’étiquette</button>' : '')+'</div>';
+    var gu = guessOf(d);
+    h += '<div class="sec"><span class="lbl">Mes pronostics</span><dl class="kv">'+[["Cépages", gu.cepages.join(", ")], ["Région", gu.region], ["Château", gu.chateau]].map(function(r){
+      return '<dt>'+r[0]+'</dt><dd>'+(r[1] ? esc(r[1]) : '<span class="muted">–</span>')+'</dd>'; }).join("")+'</dl></div>';
   }
-  h += '<div class="sec"><span class="lbl">Identité'+(d.mode && d.mode !== "normal" ? ' · '+MODES[d.mode].short.toLowerCase() : '')+'</span><dl class="kv">'+kv.filter(function(r){ return r[1]; }).map(function(r){ return '<dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd>'; }).join("")+'</dl></div>';
+  var kvs = kv.filter(function(r){ return r[1]; });
+  if (kvs.length) h += '<div class="sec"><span class="lbl">Identité'+(d.mode && d.mode !== "normal" ? ' · '+MODES[d.mode].short.toLowerCase() : '')+'</span><dl class="kv">'+kvs.map(function(r){ return '<dt>'+r[0]+'</dt><dd>'+esc(r[1])+'</dd>'; }).join("")+'</dl></div>';
   h += '<div class="sec txt"><span class="lbl">L’œil</span>'+(c ? '<p><span class="swatch" style="background:'+c[1]+'"></span><b>'+esc(c[0])+'</b> · intensité '+T_POWER[(d.intensite || 3) - 1].toLowerCase()+'</p>' : '<p class="muted">–</p>')+((d.aspect || []).length ? '<p>'+esc(d.aspect.join(", "))+'</p>' : '')+'</div>';
   h += '<div class="sec txt"><span class="lbl">Le nez</span>'+(famText(d.aromes, T_AROMES) || '<p class="muted">–</p>')+'</div>';
   h += '<div class="sec txt"><span class="lbl">La bouche</span>'+(famText(d.saveurs, T_SAVEURS) || '<p class="muted">–</p>')+'</div>';
@@ -431,16 +437,27 @@ function stats(){
   var avg = scored.length ? scored.reduce(function(s, d){ return s + d.score; }, 0) / scored.length : null;
   var h = top("Palmarès", "Tes meilleures dégustations");
   h += '<div class="kpis"><div class="kpi"><b>'+all.length+'</b><small>dégustations</small></div><div class="kpi"><b>'+fmt(avg)+'</b><small>note moyenne</small></div><div class="kpi"><b>'+known("domName").length+'</b><small>producteurs</small></div></div>';
-  if (!scored.length) return h + '<p class="empty">Note quelques bouteilles pour voir ton palmarès.</p>';
+  if (!all.length) return h + '<p class="empty">Note quelques bouteilles pour voir ton palmarès.</p>';
   var by = V.type;
   h += '<div class="chips">'+[["all","Tout"],["vin","Vins"],["biere","Bières"],["spiritueux","Spiritueux"]].map(function(f){
     return '<button class="chip" type="button" data-a="type" data-v="'+f[0]+'" aria-pressed="'+(by === f[0])+'">'+f[1]+'</button>'; }).join("")+'</div>';
   var rows = scored.filter(function(d){ return by === "all" || d.type === by; }).sort(function(a, b){ return b.score - a.score; });
-  h += '<span class="lbl">Top 10</span><div class="list" style="margin-bottom:.6rem">'+rows.slice(0, 10).map(function(d, k){ return card(d, k + 1); }).join("")+'</div>';
+  if (rows.length) h += '<span class="lbl">Top 10</span><div class="list" style="margin-bottom:var(--s-s)">'+rows.slice(0, 10).map(function(d, k){ return card(d, k + 1); }).join("")+'</div>';
+  else h += '<p class="empty">Aucune note pour l’instant.</p>';
   var prod = {};
   rows.forEach(function(d){ if (!d.domName) return; var p = prod[d.domName] || (prod[d.domName] = {s:0, n:0}); p.s += d.score; p.n++; });
   var pl = Object.keys(prod).map(function(k){ return [k, prod[k].s / prod[k].n, prod[k].n]; }).sort(function(a, b){ return b[1] - a[1]; }).slice(0, 8);
   if (pl.length) h += '<div class="sec"><span class="lbl">Producteurs</span><ol class="rank">'+pl.map(function(p){ return '<li><span>'+esc(p[0])+' <small class="muted">'+p[2]+' vin'+(p[2] > 1 ? 's' : '')+'</small></span><b style="color:'+col(p[1])+'">'+fmt(p[1])+'</b></li>'; }).join("")+'</ol></div>';
+  var blind = all.filter(function(d){ return d.mode === "aveugle"; }).sort(function(a, b){ return (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0); });
+  if (blind.length) {
+    var byDay = {};
+    blind.forEach(function(d){ (byDay[d.date || ""] = byDay[d.date || ""] || []).push(d); });
+    h += '<div class="sec"><span class="lbl">À l’aveugle · les pronostics</span>'+Object.keys(byDay).sort().reverse().map(function(day){
+      return '<p class="day">'+(day ? fdate(day) : 'Sans date')+'</p><div class="guesses">'+byDay[day].map(function(d){ var g = guessOf(d);
+        return '<button type="button" class="guess" data-a="view" data-id="'+esc(d.id)+'"><span class="gh"><b>'+esc(d.author || "–")+'</b><em>'+(d.score ? fmt(d.score)+'<small>/20</small>' : '<small>non noté</small>')+'</em></span>'+
+          '<span class="gl"><i>Cépages</i>'+esc(g.cepages.join(", ") || "–")+'</span><span class="gl"><i>Région</i>'+esc(g.region || "–")+'</span><span class="gl"><i>Château</i>'+esc(g.chateau || "–")+'</span></button>'; }).join("")+'</div>';
+    }).join("")+'</div>';
+  }
   var ar = {};
   rows.forEach(function(d){ var f = fams(d.aromes); Object.keys(f).forEach(function(k){ f[k].sub.forEach(function(a){ ar[a] = (ar[a] || 0) + 1; }); }); });
   var al = Object.keys(ar).sort(function(a, b){ return ar[b] - ar[a]; }).slice(0, 10);
@@ -497,7 +514,7 @@ function saveEntry(){
   if (!e.photoData && old.photo) e.photo = old.photo;
   S.draft = null; put(e);
   V.id = e.id; V.back = [{screen:"home"}]; V.screen = "view"; render(); window.scrollTo(0, 0);
-  toast("Enregistré : " + fmt(e.score) + "/20");
+  toast(e.score ? "Enregistré : " + fmt(e.score) + "/20" : "Enregistré");
 }
 
 /* Fenêtre d’une famille d’arômes */
@@ -635,7 +652,6 @@ document.addEventListener("click", function(e){
   else if (a === "quit") { collect(); sheetClose(); V.screen = "home"; V.back = []; render(); toast("Saisie gardée : « Reprendre » sur le carnet"); }
   else if (a === "resume") startWiz(S.draft);
   else if (a === "mode") startWiz(newDraft(b.getAttribute("data-v")));
-  else if (a === "reveal") { var rv = JSON.parse(JSON.stringify(S.t[V.id])); startWiz(rv); V.step = stepsOf(rv).length - 1; render(); }
   else if (a === "view") { V.id = b.getAttribute("data-id"); go("view"); }
   else if (a === "type") { V.type = b.getAttribute("data-v"); render(); }
   else if (a === "sort") { V.sort = V.sort === "date" ? "score" : "date"; render(); }
@@ -645,7 +661,8 @@ document.addEventListener("click", function(e){
   else if (a === "prev") goStep(V.step - 1);
   else if (a === "go") goStep(parseInt(b.getAttribute("data-i"), 10));
   else if (a === "sw") colorSet(parseInt(b.getAttribute("data-i"), 10) / (palette(V.d).length - 1), true);
-  else if (a === "score") scoreSet(parseFloat($("sr").value) + parseFloat(b.getAttribute("data-d")));
+  else if (a === "score") scoreSet($("srv").value ? parseFloat($("srv").value) + parseFloat(b.getAttribute("data-d")) : 10);
+  else if (a === "noscore") scoreSet(null);
   else if (a === "fam") sheetOpen(b.getAttribute("data-f"));
   else if (a === "search") { V.sheet = {all:true, q:"", sub:[], i:0}; sheetRender(); setTimeout(function(){ $("shq").focus(); }, 50); }
   else if (a === "pick") sheetOpen(b.getAttribute("data-f"), b.getAttribute("data-v"));

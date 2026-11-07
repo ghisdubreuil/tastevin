@@ -320,7 +320,24 @@ html.in-wiz .toast{bottom:calc(5.5rem + env(safe-area-inset-bottom,0px))}
 
 input[type=range]{margin:0}
 /* Aucun mot ne doit sortir de son cadre, même texte agrandi */
-body{overflow-wrap:break-word;hyphens:auto;-webkit-hyphens:auto}
+body{overflow-wrap:break-word}
 .mode{flex-wrap:wrap}
 .mode>span:last-child{flex:1 1 9rem}
 .hero .row>.btn{flex:0 1 auto;min-height:2.4rem;padding:var(--s-3xs) var(--s-s);font-size:var(--step--1)}
+/* Note pas encore donnée : curseur estompé */
+.big-range.unset{opacity:.35}
+.sx{text-align:center;margin:0 0 var(--s-xs);min-height:1.2em;font-size:var(--step--1)}
+.prono tbody tr[data-a]{cursor:pointer}
+.prono tbody tr[data-a]:hover{background:var(--ivory)}
+.prono .n{text-align:right;font:600 var(--step-1) var(--display);color:var(--claret)}
+.sec .day{margin-top:var(--s-xs)}
+/* Pronostics à l’aveugle : une fiche par dégustateur */
+.guesses{display:grid;gap:var(--s-2xs)}
+.guess{display:grid;gap:var(--s-3xs);width:100%;min-width:0;padding:var(--s-xs) var(--s-s);border:var(--hair);border-radius:var(--r-m);background:var(--paper);text-align:left}
+.guess:hover{border-color:var(--line-2)}
+.gh{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s-xs)}
+.gh b{font:600 var(--step-1) var(--display);min-width:0;overflow-wrap:anywhere}
+.gh em{flex:none;font:600 var(--step-1) var(--display);font-style:normal;color:var(--claret)}
+.gh em small{font-size:var(--step--1);color:var(--muted)}
+.gl{display:grid;grid-template-columns:minmax(0,5.5rem) minmax(0,1fr);gap:var(--s-xs);font-size:var(--step--1);overflow-wrap:anywhere}
+.gl i{font-style:normal;color:var(--muted)}
