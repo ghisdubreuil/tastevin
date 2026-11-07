@@ -9,18 +9,20 @@ var COLS = ["id", "updatedAt", "deleted", "date", "dégustateur", "type", "famil
             "appellation", "région", "pays", "couleur", "arômes", "saveurs", "note /20", "commentaire", "photo", "json"];
 
 function code() { return PropertiesService.getScriptProperties().getProperty("CODE") || CODE; }
+/* Code comparé sans accents ni majuscules ni espaces autour : « premiere_cuvee » vaut « Première_Cuvée » */
+function same(t) { var n = function (x) { return String(x || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }; return !!code() && n(t) === n(code()); }
 function out(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 function doGet(e) {
   var p = (e && e.parameter) || {};
-  if (!code() || p.token !== code()) return out({ ok: false, error: "token" });
+  if (!same(p.token)) return out({ ok: false, error: "token" });
   return out({ ok: true, tastings: readAll(), now: Date.now() });
 }
 
 function doPost(e) {
   var body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return out({ ok: false, error: "json" }); }
-  if (!code() || body.token !== code()) return out({ ok: false, error: "token" });
+  if (!same(body.token)) return out({ ok: false, error: "token" });
   if (body.action !== "upsert" || !body.item || !body.item.id) return out({ ok: false, error: "bad request" });
   var lock = LockService.getScriptLock();
   lock.waitLock(20000);
