@@ -1,5 +1,5 @@
 /* Tastevin hors ligne : l’appli s’ouvre sans réseau, les données restent sur le téléphone */
-var CACHE = "tastevin-v4";
+var CACHE = "tastevin-v5";
 var SHELL = ["./", "index.html", "style.css", "app.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", function(e){ e.waitUntil(caches.open(CACHE).then(function(c){ return c.addAll(SHELL); }).then(function(){ return self.skipWaiting(); })); });
 self.addEventListener("activate", function(e){

@@ -217,7 +217,7 @@ function collect(){
   function g(k){ return trim(fd.get(k)); }
   if (fd.has("famille")) d.famille = g("famille") || d.famille;
   if (step === "details" || step === "rapide") {
-    ["domName","nom","millesime","pays","region","appellation","parcelle","degre","prix","elevage","achat","infos"].forEach(function(k){ if (fd.has(k)) d[k] = g(k); });
+    ["domName","nom","millesime","pays","region","appellation","parcelle","degre","elevage","infos"].forEach(function(k){ if (fd.has(k)) d[k] = g(k); });
     if (fd.has("autreAnnee") && g("autreAnnee")) d.millesime = g("autreAnnee");
     if (fd.has("cep_present")) d.cepages = fd.getAll("cepages");
     if (V.photo) { d.photoData = V.photo; V.photo = null; }
@@ -230,7 +230,7 @@ function collect(){
   }
   else if (step === "oeil") { d.couleur = g("couleur"); d.cpos = fd.get("cpos") ? parseInt(fd.get("cpos"), 10) : null; d.intensite = parseInt(fd.get("intensite"), 10) || 0; d.aspect = fd.getAll("aspect"); }
   else if (step === "structure") { var st = {}; T_STRUCT.forEach(function(s){ if (fd.has("st_" + s[0])) st[s[0]] = parseInt(fd.get("st_" + s[0]), 10) || 0; }); d.structure = st; }
-  else if (step === "note") { d.score = parseFloat(fd.get("score")) || null; d.author = g("author"); d.date = g("date") || d.date; d.lieu = g("lieu"); d.rachat = g("rachat"); d.accords = g("accords"); d.txt = g("txt"); }
+  else if (step === "note") { d.score = parseFloat(fd.get("score")) || null; d.author = g("author"); d.date = g("date") || d.date; if (fd.has("lieu")) d.lieu = g("lieu"); d.accords = g("accords"); d.txt = g("txt"); }
   S.draft = d; save();
 }
 function hexRgb(h){ var n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
@@ -327,7 +327,7 @@ function step(id){
   else if (i === 1) {
     var vin = d.type === "vin";
     h += photoRow(d)+identity(d);
-    h += '<details class="adv"'+(V.adv ? ' open' : '')+' data-adv><summary>Mode avancé : origine, cépages, parcelle, prix…</summary><div class="sec"><div class="grid">'+
+    h += '<details class="adv"'+(V.adv ? ' open' : '')+' data-adv><summary>Mode avancé : origine, cépages, parcelle, élevage…</summary><div class="sec"><div class="grid">'+
       field("Autre année", input("autreAnnee", "", 'type="number" inputmode="numeric" min="1900" max="2100" placeholder="Ex. 1998"'))+
       field("Pays", input("pays", d.pays, 'type="text" list="dlPays" placeholder="France"'))+
       field("Région", input("region", d.region, 'type="text" list="dlReg" placeholder="Alsace"'))+
@@ -335,9 +335,7 @@ function step(id){
       field("Parcelle / lieu-dit", input("parcelle", d.parcelle, 'type="text"'), true)+
       (vin ? '<input type="hidden" name="cep_present" value="1">'+group("Cépages", pills("cepages", T_GRAPES.concat((d.cepages || []).filter(function(c){ return T_GRAPES.indexOf(c) < 0; })), d.cepages, true)) : '')+
       field("Degré (%)", input("degre", d.degre, 'type="number" inputmode="decimal" step="0.1" min="0" max="80"'))+
-      field("Prix (€)", input("prix", d.prix, 'type="number" inputmode="decimal" step="0.5" min="0"'))+
       field("Élevage", input("elevage", d.elevage, 'type="text" placeholder="Foudre, barrique, 12 ans…"'))+
-      field("Acheté / goûté où", input("achat", d.achat, 'type="text"'))+
       field("Infos", text("infos", d.infos, "Sol, vinification, ce qu’a raconté le producteur…"), true)+
       '</div>'+datalist("dlPays", known("pays").concat(["France","Italie","Espagne","Allemagne","Portugal","Belgique","Écosse","Japon"]))+datalist("dlReg", known("region"))+datalist("dlApp", known("appellation"))+'</div></details>';
   }
@@ -369,9 +367,8 @@ function step(id){
   else {
     h += '<div class="sec">'+scoreBlock(d)+'<div class="grid">'+
       field("Dégusté par", input("author", d.author || S.me, 'type="text" list="dlAut" placeholder="Ton prénom"'))+
-      field("Date", input("date", d.date || today(), 'type="date"'))+
-      field("Lieu", input("lieu", d.lieu, 'type="text" list="dlLieu" placeholder="Au domaine, au resto…"'), true)+
-      group("J’en rachète ?", pills("rachat", ["Oui, un carton","Oui, une bouteille","Non"], d.rachat))+
+      (d.sessionId ? '' : field("Date", input("date", d.date || today(), 'type="date"'))+
+        field("Lieu", input("lieu", d.lieu, 'type="text" list="dlLieu" placeholder="Au domaine, chez des amis…"'), true))+
       field("Accords", input("accords", d.accords, 'type="text" placeholder="Ex. munster, volaille"'), true)+
       field("Commentaire", text("txt", d.txt, "Ton avis en une phrase"), true)+
       '</div>'+datalist("dlAut", known("author"))+datalist("dlLieu", known("lieu"))+'</div>';
@@ -415,7 +412,7 @@ function view(){
   h += '<div class="hero" style="--s:'+col(d.score)+'"><div><b class="big">'+(d.score ? fmt(d.score)+'<small>/20</small>' : '<small>Pas encore noté</small>')+'</b><br><span class="muted">'+(d.score ? esc(lbl(d.score)) : '')+(d.author ? ' · '+esc(d.author) : '')+(d.date ? ' · '+fdate(d.date) : '')+'</span></div>'+
     '<div class="row"><button class="btn" type="button" data-a="edit">Modifier</button><button class="btn" type="button" data-a="again" title="Nouvelle dégustation du même vin">Re-déguster</button></div></div>';
   var kv = [["Producteur", d.domName], ["Cuvée", d.nom], [d.type === "vin" ? "Millésime" : "Année", d.millesime], ["Origine", [d.appellation, d.region, d.pays].filter(Boolean).join(", ")], ["Parcelle", d.parcelle],
-    ["Cépages", (d.cepages || []).join(", ")], ["Degré", d.degre ? d.degre + " %" : ""], ["Prix", d.prix ? String(d.prix).replace(".", ",") + " €" : ""], ["Élevage", d.elevage], ["Acheté / goûté", d.achat], ["Lieu", d.lieu], ["Infos", d.infos]];
+    ["Cépages", (d.cepages || []).join(", ")], ["Degré", d.degre ? d.degre + " %" : ""], ["Élevage", d.elevage], ["Lieu", d.lieu], ["Infos", d.infos]];
   var ses = d.sessionId ? S.t[d.sessionId] : null;
   if (ses && ses.closed) {
     var rb = sBottles(ses.id).filter(function(x){ return x.n === d.bottleN; })[0];
@@ -436,7 +433,7 @@ function view(){
   var st = T_STRUCT.filter(function(s){ return d.structure && d.structure[s[0]]; });
   if (st.length) h += '<div class="sec"><span class="lbl">Structure</span><div class="bars">'+st.map(function(s){ var v = d.structure[s[0]];
     return '<div><span>'+s[1]+'</span><i><b style="width:'+(v * 20)+'%"></b></i><em>'+v+'/5</em></div>'; }).join("")+'</div></div>';
-  if (d.txt || d.accords || d.rachat) h += '<div class="sec txt"><span class="lbl">Avis</span>'+(d.txt ? '<p class="quote">« '+esc(d.txt)+' »</p>' : '')+(d.accords ? '<p><b>Accords</b> '+esc(d.accords)+'</p>' : '')+(d.rachat ? '<p><b>J’en rachète</b> '+esc(d.rachat)+'</p>' : '')+'</div>';
+  if (d.txt || d.accords) h += '<div class="sec txt"><span class="lbl">Avis</span>'+(d.txt ? '<p class="quote">« '+esc(d.txt)+' »</p>' : '')+(d.accords ? '<p><b>Accords</b> '+esc(d.accords)+'</p>' : '')+'</div>';
   h += '<div class="row"><button class="btn" type="button" data-a="del">Supprimer</button></div>';
   return h;
 }
@@ -524,7 +521,9 @@ function saveEntry(){
   e.id = d.id || uid(); e.createdAt = old.createdAt || Date.now(); e.updatedAt = Date.now();
   if (!e.photoData && old.photo) e.photo = old.photo;
   S.draft = null; put(e);
-  if (e.sessionId) { V.sid = e.sessionId; V.back = [{screen:"sessions"}]; V.screen = "session"; }
+  if (e.sessionId) { V.sid = e.sessionId; V.back = [{screen:"sessions"}]; V.screen = "session";
+    var tot = sBottles(e.sessionId).length, dn = sBottles(e.sessionId).filter(function(b){ return myEntry(e.sessionId, b.n); }).length;
+    render(); window.scrollTo(0, 0); toast("Bouteille "+e.bottleN+" enregistrée · "+dn+"/"+tot); return; }
   else { V.id = e.id; V.back = [{screen:"home"}]; V.screen = "view"; }
   render(); window.scrollTo(0, 0);
   toast(e.score ? "Enregistré : " + fmt(e.score) + "/20" : "Enregistré");
@@ -662,6 +661,12 @@ function sBottles(sid){ return items("sbottle").filter(function(b){ return b.ses
 function sEntries(sid){ return list().filter(function(d){ return d.sessionId === sid; }); }
 function sThemes(sid){ return items("theme").filter(function(x){ return x.sessionId === sid; }); }
 function same(a, b){ return norm(trim(a)) === norm(trim(b)); }
+/* Note moyenne d’une bouteille pour l’ensemble des juges */
+function bottleAvg(sid, n){
+  var ns = sEntries(sid).filter(function(e){ return e.bottleN === n && e.score; });
+  return ns.length ? {avg:ns.reduce(function(t, e){ return t + e.score; }, 0) / ns.length, n:ns.length} : null;
+}
+function avgText(a){ return a ? 'Moyenne '+fmt(a.avg)+'/20 · '+a.n+' juge'+(a.n > 1 ? 's' : '') : 'Pas encore de note'; }
 function myEntry(sid, n){ return sEntries(sid).filter(function(d){ return d.bottleN === n && same(d.author, S.me); })[0] || null; }
 function players(sid){
   var seen = {};
@@ -733,15 +738,22 @@ function sessionScreen(){
   var bs = sBottles(s.id), h = top(s.name || "Session", fdate(s.date)+' · '+(s.closed ? 'terminée' : 'en cours'), true);
   if (isOrg()) h += '<div class="row" style="margin-bottom:var(--s-s)"><button class="btn" type="button" data-a="sedit">Préparer les bouteilles</button>'+
     (s.closed ? '<button class="btn" type="button" data-a="sreopen">Rouvrir</button>' : '<button class="btn pri" type="button" data-a="sclose">Déclarer la fin</button>')+'</div>';
+  if (bs.length && !s.closed) {
+    var done = bs.filter(function(b){ return myEntry(s.id, b.n); }), next = bs.filter(function(b){ return !myEntry(s.id, b.n); })[0];
+    h += '<div class="sec where"><span class="lbl">Où tu en es</span><p><b>'+done.length+'</b> bouteille'+(done.length > 1 ? 's' : '')+' dégustée'+(done.length > 1 ? 's' : '')+' sur <b>'+bs.length+'</b></p>'+
+      '<span class="pbar" aria-hidden="true"><b style="width:'+Math.round(done.length / bs.length * 100)+'%"></b></span>'+
+      (next ? '<button class="btn pri block" type="button" data-a="stile" data-n="'+next.n+'">Déguster la bouteille '+next.n+'</button>' : '<p class="muted">Tu as tout dégusté. Propose le thème commun plus bas.</p>')+'</div>';
+  }
   if (s.closed) h += resultsBlock(s);
   if (!bs.length) h += '<p class="empty">L’organisateur n’a pas encore ajouté de bouteilles.</p>';
   else {
     h += '<span class="lbl">'+(s.closed ? 'Les bouteilles dévoilées' : 'Les bouteilles · touche pour déguster')+'</span><div class="tiles">'+bs.map(function(b){
-      var me = myEntry(s.id, b.n), others = sEntries(s.id).filter(function(e){ return e.bottleN === b.n; }).length, ph = b.photoData || b.photo;
+      var me = myEntry(s.id, b.n), av = bottleAvg(s.id, b.n), ph = b.photoData || b.photo;
       return '<button class="tile'+(me ? ' done' : '')+'" type="button" data-a="stile" data-n="'+b.n+'">'+
         (s.closed && ph ? '<img src="'+esc(ph)+'" alt="" onerror="this.remove()">' : '')+'<span class="tn">'+b.n+'</span>'+
         '<span class="tt2">'+(s.closed ? esc(bottleName(b)) : 'Bouteille '+b.n)+'</span>'+
-        '<span class="ts">'+[me ? 'Ta note : '+(me.score ? fmt(me.score)+'/20' : '–') : s.closed ? '' : 'À déguster', others ? others+' avis' : ''].filter(Boolean).join(' · ')+'</span></button>';
+        '<span class="ts">'+[me ? 'Ta note : '+(me.score ? fmt(me.score)+'/20' : '–') : s.closed ? '' : 'À déguster'].filter(Boolean).join(' · ')+'</span>'+
+        '<span class="ta">'+(av ? 'Moyenne <b>'+fmt(av.avg)+'</b> · '+av.n+' juge'+(av.n > 1 ? 's' : '') : 'Aucune note')+'</span></button>';
     }).join("")+'</div>';
   }
   /* Thème commun */
@@ -753,7 +765,7 @@ function sessionScreen(){
   var ent = sEntries(s.id);
   if (ent.length) h += '<div class="sec"><span class="lbl">Les pronostics de la tablée</span>'+bs.map(function(b){
     var es = ent.filter(function(e){ return e.bottleN === b.n; }); if (!es.length) return '';
-    return '<p class="day">Bouteille '+b.n+(s.closed ? ' · '+esc(bottleName(b)) : '')+'</p><div class="guesses">'+es.map(function(e){ var g = guessOf(e);
+    return '<p class="day">Bouteille '+b.n+(s.closed ? ' · '+esc(bottleName(b)) : '')+'</p><p class="muted avg">'+avgText(bottleAvg(s.id, b.n))+'</p><div class="guesses">'+es.map(function(e){ var g = guessOf(e);
       return '<div class="guess"><span class="gh"><b>'+esc(e.author || "–")+'</b><em>'+(e.score ? fmt(e.score)+'<small>/20</small>' : '')+'</em></span>'+
         '<span class="gl"><i>Cépages</i>'+esc(g.cepages.join(", ") || "–")+'</span><span class="gl"><i>Région</i>'+esc(g.region || "–")+'</span><span class="gl"><i>Château</i>'+esc(g.chateau || "–")+'</span></div>'; }).join("")+'</div>';
   }).join("")+'</div>';
@@ -772,7 +784,7 @@ function resultsBlock(s){
       var line = rs.filter(function(r){ return r.bottles[b.n]; }).map(function(r){ var x = r.bottles[b.n];
         return '<li><b>'+esc(r.name)+'</b><span>'+x.cep.map(function(c){ return '<i class="'+(c[1] ? 'ok' : 'ko')+'">'+esc(c[0])+'</i>'; }).join(" ")+
           (x.region ? ' <i class="ok">région</i>' : '')+(x.chateau ? ' <i class="ok">château</i>' : '')+'</span><em>'+x.pts+'</em></li>'; }).join("");
-      return '<p class="day">Bouteille '+b.n+'</p><p class="muted" style="font-size:var(--step--1);margin-bottom:var(--s-2xs)">'+esc(bottleName(b))+((b.cepages || []).length ? ' · '+esc(b.cepages.join(", ")) : '')+(b.region ? ' · '+esc(b.region) : '')+'</p>'+(line ? '<ul class="pts">'+line+'</ul>' : '');
+      return '<p class="day">Bouteille '+b.n+'</p><p class="muted" style="font-size:var(--step--1);margin-bottom:var(--s-2xs)">'+avgText(bottleAvg(s.id, b.n))+' · '+esc(bottleName(b))+((b.cepages || []).length ? ' · '+esc(b.cepages.join(", ")) : '')+(b.region ? ' · '+esc(b.region) : '')+'</p>'+(line ? '<ul class="pts">'+line+'</ul>' : '');
     }).join("")+'<p class="muted" style="font-size:var(--step--2);margin-top:var(--s-s)">Barème : '+PTS.cep+' pts par cépage trouvé (−'+PTS.cepBad+' par cépage faux), '+PTS.region+' pour la région, '+PTS.chateau+' pour le château, '+PTS.theme+' pour le thème.</p></details></div>';
   return h;
 }
@@ -801,7 +813,6 @@ function sBottleScreen(){
     field("Appellation", input("appellation", b.appellation, 'type="text"'))+
     '<input type="hidden" name="cep_present" value="1">'+group("Cépages", pills("cepages", T_GRAPES.concat((b.cepages || []).filter(function(c){ return T_GRAPES.indexOf(c) < 0; })), b.cepages, true))+
     field("Autre cépage", input("autreCep", "", 'type="text" placeholder="Séparer par des virgules"'), true)+
-    field("Prix (€)", input("prix", b.prix, 'type="number" inputmode="decimal" step="0.5" min="0"'))+
     field("Notes", text("infos", b.infos, "Pour l’organisateur"), true)+
     '</div>'+datalist("dlDom", known("domName"))+datalist("dlReg", known("region").concat(T_REGIONS))+'</div>'+
     '<div class="bar-nav">'+(b.id ? '<button class="btn" type="button" data-a="sbdel">Retirer</button>' : '<span></span>')+'<button class="btn pri" type="submit">Enregistrer la bouteille</button></div></form>';
@@ -813,7 +824,7 @@ function isOrg(){ return !!S.org; }
 function sha(t){ return crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)).then(function(b){ return Array.prototype.map.call(new Uint8Array(b), function(x){ return (x < 16 ? "0" : "") + x.toString(16); }).join(""); }); }
 function sbCollect(){
   var f = $("sbf"); if (!f) return; var fd = new FormData(f), b = V.sb;
-  ["domName","nom","millesime","region","appellation","prix","infos"].forEach(function(k){ if (fd.has(k)) b[k] = trim(fd.get(k)); });
+  ["domName","nom","millesime","region","appellation","infos"].forEach(function(k){ if (fd.has(k)) b[k] = trim(fd.get(k)); });
   if (fd.has("cep_present")) b.cepages = fd.getAll("cepages");
 }
 function goSession(sid){ V.sid = sid; V.back = [{screen:"sessions"}]; V.screen = "session"; render(); window.scrollTo(0, 0); }
@@ -854,7 +865,7 @@ document.addEventListener("submit", function(e){
   else if (f.id === "sbf") {
     e.preventDefault();
     var b = V.sb;
-    ["domName","nom","millesime","region","appellation","prix","infos"].forEach(function(k){ b[k] = trim(fd.get(k)); });
+    ["domName","nom","millesime","region","appellation","infos"].forEach(function(k){ b[k] = trim(fd.get(k)); });
     if (fd.has("famille")) b.famille = trim(fd.get("famille")) || b.famille;
     b.cepages = fd.getAll("cepages"); trim(fd.get("autreCep")).split(/\s*[,;+]\s*/).forEach(function(c){ if (c && b.cepages.indexOf(c) < 0) b.cepages.push(c); });
     if (V.photo) { b.photoData = V.photo; V.photo = null; }
@@ -917,7 +928,7 @@ document.addEventListener("click", function(e){
   else if (a === "edit") startWiz(JSON.parse(JSON.stringify(S.t[V.id])));
   else if (a === "again") {
     var src = S.t[V.id], d = newDraft("normal");
-    ["type","famille","domName","nom","millesime","pays","region","appellation","parcelle","cepages","degre","prix","elevage"].forEach(function(k){ if (src[k] != null) d[k] = JSON.parse(JSON.stringify(src[k])); });
+    ["type","famille","domName","nom","millesime","pays","region","appellation","parcelle","cepages","degre","elevage"].forEach(function(k){ if (src[k] != null) d[k] = JSON.parse(JSON.stringify(src[k])); });
     if (src.photo) d.photo = src.photo;
     startWiz(d); V.step = 2; render();
   }

@@ -375,3 +375,12 @@ body{overflow-wrap:break-word}
 .pts i{font-style:normal;padding:0 .45em;border-radius:var(--r-pill);margin-right:.2em;white-space:nowrap}
 .pts i.ok{background:var(--vine-soft);color:var(--vine)}
 .pts i.ko{background:var(--ivory-2);color:var(--muted);text-decoration:line-through}
+
+/* Session : moyenne des juges et progression */
+.tile .ta{position:relative;font-size:var(--step--2);color:var(--muted)}
+.tile .ta b{font:600 var(--step-0) var(--display);color:var(--claret)}
+.avg{font-size:var(--step--1);margin:0 0 var(--s-2xs)}
+.where p{margin:0 0 var(--s-2xs)}
+.where p b{font:600 var(--step-1) var(--display);color:var(--claret)}
+.pbar{display:block;height:4px;border-radius:var(--r-pill);background:var(--line);overflow:hidden;margin:0 0 var(--s-s)}
+.pbar b{display:block;height:100%;background:var(--vine)}

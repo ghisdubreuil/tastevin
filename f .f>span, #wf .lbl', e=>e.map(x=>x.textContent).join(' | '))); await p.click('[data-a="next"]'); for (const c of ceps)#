@@ -1,0 +1,1 @@
+   if (p===viv && n===1) console.log('écran note:', await p.$$eval(' await p.click(`.pills label:has-text("${c}")`);
