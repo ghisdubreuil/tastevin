@@ -494,7 +494,13 @@ var SCREENS = {home:home, wiz:wiz, view:view, stats:stats, settings:settings, we
 function render(){
   document.documentElement.classList.toggle("wiz", V.screen === "wiz" || V.screen === "welcome");
   document.documentElement.classList.toggle("in-wiz", V.screen === "wiz");
+  /* L’Arène a son propre univers ; ses animations d’entrée ne jouent qu’à l’arrivée sur un écran */
+  var key = V.screen + "|" + (V.sid || "") + "|" + (V.g ? V.g.step : "") + "|" + (V.rv ? V.rv.podium : "");
+  document.documentElement.classList.toggle("arena", V.screen === "session" || V.screen === "play");
+  document.documentElement.classList.toggle("still", key === V.lastKey);
+  V.lastKey = key;
   $("app").innerHTML = (SCREENS[V.screen] || home)();
+  if (V.screen === "session" && !document.documentElement.classList.contains("still")) countUp();
   Array.prototype.forEach.call(document.querySelectorAll("#nav [data-go]"), function(b){
     var g = b.getAttribute("data-go"), on = g === V.screen || (g === "home" && V.screen === "view") || (g === "sessions" && ["session","sedit","sbottle"].indexOf(V.screen) >= 0);
     if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
@@ -886,6 +892,258 @@ document.addEventListener("submit", function(e){
 }, true);
 /* Pendant une session, les avis des autres arrivent vite */
 setInterval(function(){ if (V.screen === "session" && document.visibilityState === "visible") sync(); }, 15000);
+
+/* ==========================================================================
+   L’Arène : la session vue comme un jeu. Lobby, dégustation en quiz, révélation.
+   Ses écrans ont leur propre ambiance (classe « arena » sur <html>).
+   ========================================================================== */
+var AV_COL = ["#FF5C7A","#FFC24B","#4BE3A6","#8B7CFF","#4BC6FF","#FF8F4B","#E26BFF","#9BE34B"];
+function avColor(name){ var h = 0; String(name || "").split("").forEach(function(c){ h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return AV_COL[h % AV_COL.length]; }
+function initials(name){ return trim(name).split(/\s+/).map(function(w){ return w[0] || ""; }).join("").slice(0, 2).toUpperCase() || "?"; }
+function avatar(name, cls){ return '<span class="av'+(cls ? ' '+cls : '')+'" style="--c:'+avColor(name)+'" title="'+esc(name)+'">'+esc(initials(name))+'</span>'; }
+var FACES = ["😖","😕","😐","🙂","😋","🤩"];
+function gcol(s){ return s == null ? "#8a7c86" : s >= 16 ? "#4BE3A6" : s >= 13 ? "#FFC24B" : s >= 10 ? "#FF8F4B" : "#FF5C7A"; }   /* couleurs de l’Arène */
+function face(s){ return s == null ? "🤔" : FACES[Math.min(5, Math.max(0, Math.floor((s - 1) / 3.5)))]; }
+
+/* Points d’implication pendant la partie (les vrais points tombent à la révélation) */
+function xpOf(e){
+  var g = guessOf(e), x = 20 + Object.keys(e.aromes || {}).length * 3 + Object.keys(e.saveurs || {}).length * 3 + (e.score ? 5 : 0);
+  return x + Math.min(3, g.cepages.length) * 4 + (g.region ? 4 : 0) + (g.chateau ? 4 : 0);
+}
+function myXp(sid){
+  var x = sEntries(sid).filter(function(e){ return same(e.author, S.me); }).reduce(function(t, e){ return t + xpOf(e); }, 0);
+  return x + (sThemes(sid).some(function(t){ return same(t.author, S.me); }) ? 15 : 0);
+}
+function streak(sid){ var bs = sBottles(sid), k = 0; while (k < bs.length && myEntry(sid, bs[k].n)) k++; return k; }
+
+function ring(done, total){
+  var r = 52, c = 2 * Math.PI * r, f = total ? done / total : 0;
+  return '<svg class="ring" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="'+r+'" class="ring-bg"/>'+
+    '<circle cx="60" cy="60" r="'+r+'" class="ring-fg" style="--c:'+c.toFixed(1)+';--o:'+(c * (1 - f)).toFixed(1)+'"/></svg>';
+}
+function arTop(title, sub, extra){
+  return '<header class="ar-top"><button class="ar-ic" type="button" data-a="arexit" aria-label="Quitter l’arène">✕</button>'+
+    '<div class="ar-tt"><small>'+esc(sub)+'</small><h1>'+esc(title)+'</h1></div>'+(extra || '')+'</header>';
+}
+
+/* ---------- Lobby ---------- */
+function arena(){
+  var s = S.t[V.sid]; if (!s || s.deleted) { V.screen = "sessions"; return sessionsScreen(); }
+  if (s.closed) return reveal(s);
+  var bs = sBottles(s.id), done = bs.filter(function(b){ return myEntry(s.id, b.n); }), next = bs.filter(function(b){ return !myEntry(s.id, b.n); })[0];
+  var ps = players(s.id); if (S.me && !ps.some(function(p){ return same(p, S.me); })) ps.unshift(S.me);
+  var h = '<div class="ar">'+arTop(s.name || "Session", "Session à l’aveugle", '<span class="ar-live"><i></i>En direct</span>');
+  h += '<section class="ar-hero pop" style="--i:0"><div class="ar-ring">'+ring(done.length, bs.length)+'<span><b data-count="'+done.length+'">'+done.length+'</b><small>/ '+bs.length+'</small></span></div>'+
+    '<div class="ar-stats"><p class="ar-hello">'+(S.me ? 'À toi de jouer, '+esc(S.me)+' !' : 'Choisis ton prénom dans Réglages')+'</p>'+
+    '<div class="ar-badges"><span class="bdg xp">⚡ <b data-count="'+myXp(s.id)+'">'+myXp(s.id)+'</b> XP</span><span class="bdg fire">🔥 série <b>'+streak(s.id)+'</b></span></div></div></section>';
+  if (ps.length) h += '<div class="ar-players pop" style="--i:1">'+ps.map(function(p){
+    var n = sEntries(s.id).filter(function(e){ return same(e.author, p); }).length;
+    return '<span class="pl">'+avatar(p)+'<small>'+esc(p)+'</small><em>'+n+'/'+bs.length+'</em></span>'; }).join("")+'</div>';
+  if (!bs.length) h += '<p class="ar-empty pop" style="--i:2">L’organisateur prépare les bouteilles…</p>';
+  else h += '<h2 class="ar-h pop" style="--i:2">Les bouteilles</h2><div class="ar-grid">'+bs.map(function(b, k){
+    var me = myEntry(s.id, b.n), av = bottleAvg(s.id, b.n), isNext = next && next.n === b.n;
+    return '<button type="button" class="lvl pop'+(me ? ' done' : '')+(isNext ? ' next' : '')+'" style="--i:'+(k + 3)+'" data-a="gplay" data-n="'+b.n+'">'+
+      '<span class="lvl-n">'+b.n+'</span>'+(me ? '<span class="lvl-ok" aria-label="dégustée">✓</span>' : '')+
+      '<span class="lvl-s">'+(me ? (me.score ? '<b>'+fmt(me.score)+'</b>/20' : 'Notée') : isNext ? 'À toi !' : 'À jouer')+'</span>'+
+      '<span class="lvl-a">'+(av ? '★ '+fmt(av.avg)+' · '+av.n+' juge'+(av.n > 1 ? 's' : '') : 'Aucune note')+'</span></button>';
+  }).join("")+'</div>';
+  /* Thème commun */
+  var mine = sThemes(s.id).filter(function(t){ return same(t.author, S.me); })[0];
+  h += '<section class="ar-card pop" style="--i:'+(bs.length + 3)+'"><h2 class="ar-h">🎯 Le thème commun <small>+15 XP</small></h2>'+
+    '<form id="thf" class="ar-theme"><input name="theme" value="'+esc(mine ? mine.theme : "")+'" placeholder="Quel est le fil rouge ?" aria-label="Ton idée du thème" autocomplete="off"><button class="ar-btn sm" type="submit">'+(mine ? 'Changer' : 'Proposer')+'</button></form>'+
+    (sThemes(s.id).length ? '<div class="ar-feed">'+sThemes(s.id).map(function(t){ return '<p class="bub">'+avatar(t.author, "sm")+'<span><b>'+esc(t.author)+'</b> '+esc(t.theme)+'</span></p>'; }).join("")+'</div>' : '')+'</section>';
+  /* Fil de la tablée */
+  var ent = sEntries(s.id).slice().sort(function(a, b){ return (b.updatedAt || 0) - (a.updatedAt || 0); });
+  if (ent.length) h += '<section class="ar-card pop" style="--i:'+(bs.length + 4)+'"><h2 class="ar-h">💬 Ce que pense la tablée</h2><div class="ar-feed">'+ent.slice(0, 30).map(function(e){ var g = guessOf(e);
+    return '<p class="bub">'+avatar(e.author, "sm")+'<span><b>'+esc(e.author)+'</b> <i class="tagb">B'+e.bottleN+'</i> '+esc([g.cepages.join(", "), g.region, g.chateau].filter(Boolean).join(" · ") || "pas de pronostic")+(e.score ? ' <em>'+fmt(e.score)+'/20</em>' : '')+'</span></p>'; }).join("")+'</div></section>';
+  if (isOrg()) h += '<section class="ar-card org pop" style="--i:'+(bs.length + 5)+'"><h2 class="ar-h">🎩 Organisateur</h2><div class="ar-row">'+
+    '<button class="ar-btn ghost" type="button" data-a="sedit">Préparer les bouteilles</button><button class="ar-btn gold" type="button" data-a="sclose">Lancer la révélation</button></div></section>';
+  h += '<div class="ar-space"></div>';
+  if (next) h += '<div class="ar-cta"><button class="ar-btn big pulse" type="button" data-a="gplay" data-n="'+next.n+'">▶ Jouer la bouteille '+next.n+'</button></div>';
+  else if (bs.length) h += '<div class="ar-cta"><p class="ar-done">🏁 Toutes tes bouteilles sont jouées. Attends la révélation !</p></div>';
+  return h + '</div>';
+}
+
+/* ---------- La partie : une question par écran ---------- */
+var G_STEPS = [
+  ["couleur","Question 1","De quelle couleur est-il ?"],
+  ["nez","Question 2","Qu’est-ce que tu sens ?"],
+  ["bouche","Question 3","Et en bouche ?"],
+  ["note","Question 4","Ta note"],
+  ["cepages","Pronostic 1","Quel cépage ?"],
+  ["region","Pronostic 2","Quelle région ?"],
+  ["chateau","Pronostic 3","Quel château ?"]
+];
+function gStart(n){
+  var me = myEntry(V.sid, n), s = S.t[V.sid];
+  var d = me ? JSON.parse(JSON.stringify(me)) : {mode:"aveugle", sessionId:V.sid, bottleN:n, sessionName:s.name, author:S.me, date:s.date || today(), aromes:{}, saveurs:{}, structure:{}, guess:{cepages:[], region:"", chateau:""}};
+  d.guess = guessOf(d);
+  V.g = {n:n, step:0, d:d, dir:"in", q:""};
+  V.screen = "play"; render(); window.scrollTo(0, 0);
+}
+function play(){
+  var g = V.g, st = G_STEPS[g.step], d = g.d, last = g.step === G_STEPS.length - 1;
+  var h = '<div class="ar ar-play">'+arTop("Bouteille "+g.n, (S.t[V.sid] || {}).name || "Session", '<span class="ar-step">'+(g.step + 1)+'/'+G_STEPS.length+'</span>');
+  h += '<div class="ar-prog" aria-hidden="true">'+G_STEPS.map(function(x, k){ return '<i class="'+(k < g.step ? 'ok' : k === g.step ? 'on' : '')+'"></i>'; }).join("")+'</div>';
+  h += '<section class="q'+(g.dir ? ' q-'+g.dir : '')+'"><p class="q-k">'+st[1]+'</p><h2 class="q-t">'+st[2]+'</h2>'+qBody(st[0], d)+'</section>';
+  h += '<footer class="ar-foot"><button class="ar-btn ghost" type="button" data-a="gprev"'+(g.step ? '' : ' disabled')+' aria-label="Question précédente">←</button>'+
+    '<button class="ar-btn big'+(last ? ' gold' : '')+'" type="button" data-a="gnext">'+(last ? 'Valider ma bouteille' : 'Continuer')+'</button></footer></div>';
+  g.dir = "";
+  return h;
+}
+function qBody(id, d){
+  if (id === "couleur") {
+    var c = d.couleur ? d.couleur.split("|") : null;
+    return '<div class="q-glass"><div class="wave">'+glass(null, c ? c[1] : "#3a2430")+'</div><p class="q-pick">'+(c ? esc(c[0]) : 'Touche une teinte')+'</p></div>'+
+      '<div class="sw-grid">'+T_BLIND.map(function(x, k){ return '<button type="button" class="swb'+(c && c[0] === x[0] ? ' on' : '')+'" style="--c:'+x[1]+'" data-a="gcol" data-i="'+k+'" aria-label="'+esc(x[0])+'"></button>'; }).join("")+'</div>';
+  }
+  if (id === "nez" || id === "bouche") {
+    var key = id === "nez" ? "aromes" : "saveurs", lst = id === "nez" ? T_AROMES : T_SAVEURS.slice(0, 5).concat(T_AROMES.filter(function(f){ return ["fruite","boise","epice","mineral"].indexOf(f[0]) >= 0; }));
+    var h = '<p class="q-sub">'+(id === "nez" ? 'Touche toutes les familles que tu reconnais.' : 'Les saveurs, puis la structure.')+'</p><div class="chips-g">'+lst.map(function(f){ var on = !!(d[key] || {})[f[0]];
+      return '<button type="button" class="cg'+(on ? ' on' : '')+'" data-a="gfam" data-k="'+key+'" data-f="'+f[0]+'"><span>'+f[1]+'</span>'+esc(f[2])+'</button>'; }).join("")+'</div>';
+    if (id === "bouche") h += '<div class="q-sliders">'+[["acidite","Acidité","🫧","🍋"],["corps","Corps","🪶","🏋️"],["longueur","Longueur","⏱️","♾️"]].map(function(x){ var v = (d.structure || {})[x[0]] || 3;
+      return '<label class="qs"><span>'+x[1]+'</span><i>'+x[2]+'</i><input type="range" min="1" max="5" value="'+v+'" data-gst="'+x[0]+'"><i>'+x[3]+'</i></label>'; }).join("")+'</div>';
+    return h;
+  }
+  if (id === "note") {
+    var sc = d.score;
+    return '<div class="q-score" style="--s:'+gcol(sc)+'"><span class="face" id="gface">'+face(sc)+'</span><b id="gsc">'+(sc ? fmt(sc) : '–')+'</b><small>/20</small></div>'+
+      '<input class="q-range" id="grange" type="range" min="1" max="20" step="0.5" value="'+(sc || 10)+'" aria-label="Note sur 20">'+
+      '<div class="q-pm"><button type="button" class="ar-btn ghost sm" data-a="gpm" data-d="-0.5">− ½</button><span id="glbl">'+(sc ? esc(lbl(sc)) : 'Fais glisser')+'</span><button type="button" class="ar-btn ghost sm" data-a="gpm" data-d="0.5">+ ½</button></div>';
+  }
+  if (id === "cepages") {
+    var q = norm(V.g.q), sel = d.guess.cepages, pool = T_GRAPES.concat(sel.filter(function(c){ return T_GRAPES.indexOf(c) < 0; }));
+    var shown = q ? pool.filter(function(c){ return norm(c).indexOf(q) >= 0; }) : pool;
+    return '<p class="q-sub">Un ou plusieurs. Attention : un cépage faux coûte un point.</p>'+(sel.length ? '<div class="sel">'+sel.map(function(c){ return '<button type="button" class="selc" data-a="gcep" data-v="'+esc(c)+'">'+esc(c)+' ✕</button>'; }).join("")+'</div>' : '')+
+      '<label class="q-search"><span aria-hidden="true">🔍</span><input id="gq" value="'+esc(V.g.q)+'" placeholder="Chercher ou ajouter un cépage" autocomplete="off"></label>'+
+      '<div class="chips-g">'+shown.map(function(c){ return '<button type="button" class="cg'+(sel.indexOf(c) >= 0 ? ' on' : '')+'" data-a="gcep" data-v="'+esc(c)+'">🍇 '+esc(c)+'</button>'; }).join("")+
+      (q && !shown.some(function(c){ return norm(c) === q; }) ? '<button type="button" class="cg add" data-a="gcep" data-v="'+esc(trim(V.g.q))+'">＋ '+esc(trim(V.g.q))+'</button>' : '')+'</div>';
+  }
+  if (id === "region") {
+    var r = d.guess.region, q2 = norm(V.g.q), regs = T_REGIONS.filter(function(x){ return !q2 || norm(x).indexOf(q2) >= 0; });
+    return '<label class="q-search"><span aria-hidden="true">🗺️</span><input id="gq" value="'+esc(V.g.q || "")+'" placeholder="'+(r ? esc(r) : 'Chercher une région')+'" autocomplete="off"></label>'+
+      '<div class="chips-g">'+regs.map(function(x){ return '<button type="button" class="cg'+(same(x, r) ? ' on' : '')+'" data-a="greg" data-v="'+esc(x)+'">'+esc(x)+'</button>'; }).join("")+
+      (q2 && !regs.some(function(x){ return norm(x) === q2; }) ? '<button type="button" class="cg add" data-a="greg" data-v="'+esc(trim(V.g.q))+'">＋ '+esc(trim(V.g.q))+'</button>' : '')+'</div>';
+  }
+  var sug = known("domName").slice(0, 12);
+  return '<p class="q-sub">Facultatif, mais ça rapporte gros : 3 points.</p><label class="q-search"><span aria-hidden="true">🏰</span><input id="gchat" value="'+esc(d.guess.chateau)+'" placeholder="Château ou domaine" autocomplete="off"></label>'+
+    (sug.length ? '<div class="chips-g">'+sug.map(function(x){ return '<button type="button" class="cg'+(same(x, d.guess.chateau) ? ' on' : '')+'" data-a="gchat" data-v="'+esc(x)+'">'+esc(x)+'</button>'; }).join("")+'</div>' : '');
+}
+function gStep(k){
+  var g = V.g; if (!g) return;
+  g.dir = k > g.step ? "in" : "back"; g.step = Math.max(0, Math.min(G_STEPS.length - 1, k)); g.q = "";
+  render(); window.scrollTo(0, 0);
+}
+function gFinish(){
+  var d = V.g.d, ch = $("gchat"); if (ch) d.guess.chateau = trim(ch.value);
+  if (!S.me) { toast("Indique ton prénom dans Réglages"); return; }
+  d.author = d.author || S.me;
+  var old = d.id ? S.t[d.id] || {} : {};
+  d.id = d.id || uid(); d.createdAt = old.createdAt || Date.now(); d.updatedAt = Date.now();
+  put(JSON.parse(JSON.stringify(d)));
+  var gain = xpOf(d), n = V.g.n;
+  V.g = null; V.screen = "session"; render(); window.scrollTo(0, 0);
+  celebrate("Bouteille "+n+" dégustée !", "+"+gain+" XP");
+}
+
+/* ---------- Révélation ---------- */
+function reveal(s){
+  var bs = sBottles(s.id), rs = results(s), rv = V.rv && V.rv.sid === s.id ? V.rv : (V.rv = {sid:s.id, open:{}, podium:false});
+  var all = bs.length && bs.every(function(b){ return rv.open[b.n]; });
+  var h = '<div class="ar ar-rv">'+arTop(s.name || "Session", "La révélation", '<span class="ar-live off">Terminée</span>');
+  if (!rv.podium) {
+    h += '<p class="rv-lead pop" style="--i:0">Touche chaque bouteille pour la retourner.</p><div class="rv-grid">'+bs.map(function(b, k){
+      var ph = b.photoData || b.photo, av = bottleAvg(s.id, b.n);
+      var line = rs.filter(function(r){ return r.bottles[b.n]; }).sort(function(a, z){ return z.bottles[b.n].pts - a.bottles[b.n].pts; }).map(function(r){
+        return '<li>'+avatar(r.name, "sm")+'<span>'+esc(r.name)+'</span><b>+'+r.bottles[b.n].pts+'</b></li>'; }).join("");
+      return '<button type="button" class="flip pop'+(rv.open[b.n] ? ' open' : '')+'" style="--i:'+(k + 1)+'" data-a="rflip" data-n="'+b.n+'"><span class="fl-in">'+
+        '<span class="fl-front"><b>'+b.n+'</b><small>Touche pour révéler</small></span>'+
+        '<span class="fl-back">'+(ph ? '<img src="'+esc(ph)+'" alt="" onerror="this.remove()">' : '')+'<span class="fl-txt"><small>Bouteille '+b.n+'</small><b>'+esc(bottleName(b))+'</b>'+
+        '<i>'+esc([(b.cepages || []).join(", "), b.region].filter(Boolean).join(" · "))+'</i>'+(av ? '<em>★ '+fmt(av.avg)+'/20</em>' : '')+'</span>'+(line ? '<ul class="fl-pts">'+line+'</ul>' : '')+'</span></span></button>';
+    }).join("")+'</div>';
+    h += '<div class="ar-space"></div><div class="ar-cta">'+(all ? '<button class="ar-btn big gold pulse" type="button" data-a="rpodium">🏆 Voir le podium</button>' : '<button class="ar-btn big" type="button" data-a="rall">Tout révéler</button>')+'</div>';
+  } else {
+    var top3 = [rs[1], rs[0], rs[2]];
+    h += (s.theme ? '<section class="ar-card pop" style="--i:0"><h2 class="ar-h">🎯 Le thème était</h2><p class="rv-theme">« '+esc(s.theme)+' »</p>'+
+      (sThemes(s.id).length ? '<div class="ar-feed">'+sThemes(s.id).map(function(t){ var ok = themeNear(t.theme, s.theme);
+        return '<p class="bub">'+avatar(t.author, "sm")+'<span><b>'+esc(t.author)+'</b> '+esc(t.theme)+(ok ? ' <em class="win">+'+PTS.theme+'</em>' : '')+'</span></p>'; }).join("")+'</div>' : '')+'</section>' : '');
+    if (rs.length) {
+      h += '<section class="podium-g">'+top3.map(function(r, k){ if (!r) return '<div class="pd empty"></div>'; var place = [2, 1, 3][k];
+        return '<div class="pd p'+place+'">'+avatar(r.name, "lg")+'<b class="pd-n">'+esc(r.name)+'</b><span class="pd-p"><span data-count="'+r.pts+'">0</span> pts</span><div class="pd-col"><span>'+place+'</span></div></div>'; }).join("")+'</section>';
+      h += '<p class="rv-win pop" style="--i:4">🏆 '+esc(rs[0].name)+' remporte la session !</p>';
+      h += '<section class="ar-card pop" style="--i:5"><h2 class="ar-h">Classement</h2><ol class="ar-rank">'+rs.map(function(r, k){
+        return '<li>'+'<span class="rk">'+(k + 1)+'</span>'+avatar(r.name, "sm")+'<span class="nm">'+esc(r.name)+'</span><b>'+r.pts+' pts</b></li>'; }).join("")+'</ol>'+
+        '<p class="ar-scale">Barème : '+PTS.cep+' par cépage trouvé (−'+PTS.cepBad+' par faux), '+PTS.region+' pour la région, '+PTS.chateau+' pour le château, '+PTS.theme+' pour le thème.</p></section>';
+    }
+    h += '<div class="ar-row" style="margin-top:1rem"><button class="ar-btn ghost" type="button" data-a="rback">Revoir les bouteilles</button>'+(isOrg() ? '<button class="ar-btn ghost" type="button" data-a="sreopen">Rouvrir la session</button>' : '')+'</div>';
+  }
+  return h + '</div>';
+}
+
+/* ---------- Effets ---------- */
+function countUp(){
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  Array.prototype.forEach.call(document.querySelectorAll("[data-count]"), function(el){
+    var to = parseFloat(el.getAttribute("data-count")) || 0, t0 = performance.now(), dur = 900 + Math.min(900, to * 20);
+    (function tick(t){ var k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e); if (k < 1) requestAnimationFrame(tick); })(t0);
+  });
+}
+function confetti(){
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  var c = document.createElement("canvas"), x = c.getContext("2d"), W = c.width = innerWidth * devicePixelRatio, H = c.height = innerHeight * devicePixelRatio;
+  c.className = "confetti"; document.body.appendChild(c);
+  var ps = []; for (var i = 0; i < 140; i++) ps.push({x:W / 2 + (Math.random() - .5) * W * .3, y:H * .35, vx:(Math.random() - .5) * 18 * devicePixelRatio, vy:(-Math.random() * 16 - 6) * devicePixelRatio, r:(Math.random() * 6 + 4) * devicePixelRatio, c:AV_COL[i % AV_COL.length], a:Math.random() * 6, s:Math.random() * .3 - .15});
+  var t0 = performance.now();
+  (function f(t){
+    x.clearRect(0, 0, W, H);
+    ps.forEach(function(p){ p.vy += .45 * devicePixelRatio; p.x += p.vx; p.y += p.vy; p.vx *= .99; p.a += p.s;
+      x.save(); x.translate(p.x, p.y); x.rotate(p.a); x.fillStyle = p.c; x.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); x.restore(); });
+    if (t - t0 < 2600) requestAnimationFrame(f); else c.remove();
+  })(t0);
+}
+function celebrate(title, gain){
+  if (navigator.vibrate) navigator.vibrate([20, 40, 30]);
+  var el = document.createElement("div"); el.className = "celebr";
+  el.innerHTML = '<div class="cb-in"><span class="cb-glass">🍷</span><b>'+esc(title)+'</b><em>'+esc(gain)+'</em></div>';
+  document.body.appendChild(el); confetti();
+  setTimeout(function(){ el.classList.add("out"); setTimeout(function(){ el.remove(); }, 400); }, 1500);
+}
+
+SCREENS.session = arena; SCREENS.play = play;
+
+document.addEventListener("click", function(e){
+  var b = e.target.closest("[data-a]"); if (!b) return;
+  var a = b.getAttribute("data-a"), g = V.g;
+  if (a === "arexit") { if (V.screen === "play") { V.screen = "session"; render(); } else { V.screen = "sessions"; V.back = []; render(); } window.scrollTo(0, 0); }
+  else if (a === "gplay") { if ((S.t[V.sid] || {}).closed) return; if (!S.me) { toast("Indique ton prénom dans Réglages"); return; } gStart(parseInt(b.getAttribute("data-n"), 10)); }
+  else if (a === "gnext") { if (g.step === G_STEPS.length - 1) gFinish(); else { var ch = $("gchat"); if (ch) g.d.guess.chateau = trim(ch.value); gStep(g.step + 1); } }
+  else if (a === "gprev") gStep(g.step - 1);
+  else if (a === "gcol") { var c = T_BLIND[parseInt(b.getAttribute("data-i"), 10)]; g.d.couleur = c[0] + "|" + c[1]; tap(b); render(); }
+  else if (a === "gfam") { var k = b.getAttribute("data-k"), f = b.getAttribute("data-f"), o = g.d[k] = g.d[k] || {}; if (o[f]) delete o[f]; else o[f] = {sub:[], i:6}; tap(b); render(); }
+  else if (a === "gpm") gScore((g.d.score || 10) + parseFloat(b.getAttribute("data-d")));
+  else if (a === "gcep") { var v = b.getAttribute("data-v"), arr = g.d.guess.cepages, i = arr.indexOf(v); if (i >= 0) arr.splice(i, 1); else arr.push(v); if (b.classList.contains("add")) g.q = ""; tap(b); render(); }
+  else if (a === "greg") { var r = b.getAttribute("data-v"); g.d.guess.region = same(r, g.d.guess.region) ? "" : r; g.q = ""; tap(b); render(); }
+  else if (a === "gchat") { g.d.guess.chateau = b.getAttribute("data-v"); render(); }
+  else if (a === "rflip") { V.rv.open[b.getAttribute("data-n")] = true; b.classList.add("open"); if (navigator.vibrate) navigator.vibrate(15);
+    if (sBottles(V.sid).every(function(x){ return V.rv.open[x.n]; })) setTimeout(render, 700); }
+  else if (a === "rall") { sBottles(V.sid).forEach(function(x){ V.rv.open[x.n] = true; }); render(); }
+  else if (a === "rpodium") { V.rv.podium = true; render(); window.scrollTo(0, 0); setTimeout(confetti, 900); }
+  else if (a === "rback") { V.rv.podium = false; render(); }
+});
+function tap(b){ if (navigator.vibrate) navigator.vibrate(8); }
+function gScore(v){
+  var g = V.g; v = Math.max(1, Math.min(20, v)); g.d.score = v;
+  var o = document.querySelector(".q-score"); if (!o) return;
+  o.style.setProperty("--s", gcol(v)); $("gsc").textContent = fmt(v); $("glbl").textContent = lbl(v); $("grange").value = v;
+  var fc = $("gface"), nf = face(v); if (fc.textContent !== nf) { fc.textContent = nf; fc.classList.remove("boing"); void fc.offsetWidth; fc.classList.add("boing"); if (navigator.vibrate) navigator.vibrate(6); }
+}
+document.addEventListener("input", function(e){
+  var t = e.target, g = V.g; if (!g || V.screen !== "play") return;
+  if (t.id === "grange") gScore(parseFloat(t.value));
+  else if (t.hasAttribute("data-gst")) { g.d.structure = g.d.structure || {}; g.d.structure[t.getAttribute("data-gst")] = parseInt(t.value, 10); }
+  else if (t.id === "gq") { g.q = t.value; var pos = t.selectionStart; render(); var q = $("gq"); if (q) { q.focus(); q.setSelectionRange(pos, pos); } }
+  else if (t.id === "gchat") g.d.guess.chateau = t.value;
+});
 
 /* ---------- Événements ---------- */
 document.addEventListener("click", function(e){

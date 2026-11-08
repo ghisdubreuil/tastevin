@@ -35,6 +35,12 @@ On peut l’ajouter à l’écran d’accueil. Elle marche hors ligne.
     Barème : 3 points par cépage trouvé (−1 par cépage faux), 2 pour la région, 3 pour le
     château, 5 pour le thème.
   - Tout le monde doit utiliser le même code de cave.
+  - Une fois dans la session, on entre dans **l’Arène**, un mode de jeu avec son propre
+    univers (nuit de cave, néons, gros boutons en relief). Le lobby montre la
+    progression en anneau, l’XP, la série, les joueurs et les bouteilles comme des niveaux.
+    On joue chaque bouteille en quiz, une question par écran : couleur, nez, bouche, note,
+    cépages, région, château. La partie se termine par une célébration. À la fin, on
+    retourne les cartes une par une avant le podium.
 - **Fiche** : tout le détail, avec « Modifier » et « Re-déguster » (une nouvelle note du même vin).
 - **Palmarès** : top 10, producteurs et arômes les plus cités.
 - **Réglages** : prénom, code de cave partagée, export JSON ou CSV, import (y compris
